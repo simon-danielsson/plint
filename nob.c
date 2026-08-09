@@ -21,7 +21,8 @@ typedef struct {
 
 global_var EnvVars env_variables = (EnvVars){
     .project = PROJ_NAME,
-    .description = "This is a new C project!",
+    .description = "Header-only C library for building and serving websites.",
+
     .author = "Simon Danielsson",
     .contact = "contact@simondanielsson.se",
     .website = "https://simondanielsson.se/",

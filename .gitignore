@@ -1,5 +1,6 @@
 nob.old
 nob
+/references
 build/*.tmp
 /static/*.h
 /build

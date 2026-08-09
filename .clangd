@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    - -Wno-c23-extensions
+    - -Wextra
+    - -Wno-unused-variable
+    - -Wno-unused-but-set-variable
+    - -Wno-unused-function

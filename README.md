@@ -38,7 +38,7 @@ Plint can essentially be described as a fancy wrapper around the Unix networking
 Download (or copy) [plint.h](./plint.h) into your codebase and include it like this:
   
 ``` c
-#define PLT_IMPLEMENTATION
+#define PLINT_IMPLEMENTATION
 #include "plint.h"
 ```
   
@@ -47,7 +47,32 @@ Download (or copy) [plint.h](./plint.h) into your codebase and include it like t
   
 ## Usage
    
-No usage section written yet.
+### Simple example
+    
+``` c
+#define PLINT_IMPLEMENTATION
+#include "plint.h"
+
+int main(void) {
+    PlintServer ps = {0};
+
+    PlintServer_append_route(
+            &ps, &(PlintRoute){.route = "/", .file_path = "./site/index.html"});
+
+    PlintServer_append_route(
+            &ps,
+            &(PlintRoute){.route = "/projects", .file_path = "./site/projects.html"});
+
+    PlintServer_append_route(&ps, &(PlintRoute){.route = "/favicon.ico",
+            .file_path = "./site/white.ico"});
+
+    ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
+
+    PlintServer_start(&ps, server_addr);
+
+    return 0;
+}
+```
     
 ---
 <div id="references"></div>

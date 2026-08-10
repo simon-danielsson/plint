@@ -91,6 +91,8 @@ case of this library, everything regarding UNIX networking can be found on the m
 - https://github.com/KDesp73/webc
 - https://www.tutorialspoint.com/http/http_api_design_considerations.htm
 - https://en.wikibooks.org/wiki/C_programming/Networking_in_UNIX
+- https://github.com/rexim/tore/
+- https://github.com/pallets/jinja/
     
 ---
 <div id="license"></div>

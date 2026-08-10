@@ -3,5 +3,6 @@ nob
 /references
 build/*.tmp
 notes.md
+/files
 /static/*.h
 /build

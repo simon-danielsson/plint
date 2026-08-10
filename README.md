@@ -87,7 +87,7 @@ int main(void) {
   
 ## References
    
-I have decided to share all the references I found while building this library, since other people
+I have decided to share all the references/sources I studied while building this library, since other people
 might find them useful as learning resources. *Note: it's important to compare any
 sources you find on the internet with official and trusted documentation (in the
 case of this library, everything regarding UNIX networking can be found on the man pages).*

@@ -57,7 +57,7 @@ typedef struct {
     uint n_routes;
 } PlintServer;
 
-void Plint_server_start(PlintServer *ps, const ServerAddressIPv4 saddr);
+void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 /*
 
@@ -72,9 +72,27 @@ void Plint_server_start(PlintServer *ps, const ServerAddressIPv4 saddr);
    ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
 
    4. Start the server
-   Plint_server_start(&ps, server_addr);
+   PlintServer_start(&ps, server_addr);
 
 */
+#ifndef PLINT_NO_LOG
+#define Plint_log(...)                                                         \
+    do {                                                                         \
+        time_t rawtime;                                                            \
+        struct tm *timeinfo;                                                       \
+        char tmp[256] = {0}, time_str[256] = {0};                                  \
+        time(&rawtime);                                                            \
+        timeinfo = localtime(&rawtime);                                            \
+        snprintf(time_str, 256, "%04d-%02d-%02d %02d:%02d:%02d",                   \
+                timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,                   \
+                timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min,           \
+                timeinfo->tm_sec);                                                \
+        snprintf(tmp, 256, __VA_ARGS__);                                           \
+        printf("[LOG %s] %s \n", time_str, tmp);                                   \
+    } while (0)
+#else
+#define Plint_log(...)
+#endif
 
 void PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
     if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
@@ -98,12 +116,12 @@ int main(void) {
     ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
 
     // start server
-    Plint_server_start(&ps, server_addr);
+    PlintServer_start(&ps, server_addr);
 
     return EXIT_SUCCESS;
 }
 
-// helper: Plint_server_start(PlintServer *ps, const ServerAddressIPv4 saddr)
+// helper: PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr)
 intern_fn struct sockaddr_in
 _PlintServer_init_socket_address(const ServerAddressIPv4 saddr) {
     in_addr_t ip[sizeof(struct in_addr)];
@@ -203,7 +221,7 @@ void _Plint_client_handle(PlintServer *ps, int socket) {
         sscanf(buf, "%s %s %s", method, path, http_v);
     }
 
-    printf("%s(%s) - %s\n", method, http_v, path);
+    Plint_log("%s %s", method, path);
 
     if (strcmp(http_v, "1.1")) {
         if (strcmp(method, "GET") == 0) {
@@ -224,7 +242,7 @@ void _Plint_client_handle(PlintServer *ps, int socket) {
     close(socket);
 }
 
-void Plint_server_start(PlintServer *ps, const ServerAddressIPv4 saddr) {
+void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr) {
     struct sockaddr_in addr = _PlintServer_init_socket_address(saddr);
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -250,10 +268,8 @@ void Plint_server_start(PlintServer *ps, const ServerAddressIPv4 saddr) {
 
     ps->server_fd = server_fd;
 
-#ifndef PLINT_NO_LOG
-    printf("[LOG] listening on http://%d.%d.%d.%d:%d\n", saddr.ip[0], saddr.ip[1],
+    Plint_log("listening on http://%d.%d.%d.%d:%d", saddr.ip[0], saddr.ip[1],
             saddr.ip[2], saddr.ip[3], saddr.port);
-#endif
 
     // start running infinitely
     int new_socket;

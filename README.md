@@ -24,7 +24,15 @@
 
 ## Info
   
-Plint can essentially be described as a fancy wrapper around the Unix networking API, making the handling of requests and the serving of static web content trivial. This library is adequate for projects such as static websites with low traffic.
+Plint is (at its core) a wrapper around the Unix networking API; it's adequate for projects such as static websites with low traffic.
+  
+### Features
+- HTTP/1.1 support
+- Serves static files
+
+### Planned features
+- Handling of POST requests
+- HTML template system
   
 ### Requirements
 - C99 or newer

@@ -1,6 +1,4 @@
-<p align="center">
-    <h2>Plint</h2>
-</p>
+<h1 align="center">Plint</h1>
   
 <p align="center">
   <em>Header-only C library for building basic static websites.</em>

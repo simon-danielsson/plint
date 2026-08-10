@@ -54,9 +54,6 @@ typedef struct {
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 int main(void) {
-#ifdef TEST
-    _run_tests();
-#endif
 
     PlintServer ps = {0};
     ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};

@@ -1,3 +1,15 @@
+/*
+Update (Simon Danielsson) 2026-08-10:
+The NOB_NO_ECHO macro definition has been patched to work with the ctmp nob.c
+-v/--verbose flag at runtime.
+All instances of `#ifndef NOB_NO_ECHO ... ...` have been replaced with:
+`if (!nob_no_echo) { ... ...`
+*/
+#include <stdbool.h>
+extern bool nob_no_echo;
+
+//-----------------------------------------------------------------------------
+
 /* nob - v3.10.0 - Public Domain - https://github.com/tsoding/nob.h
 
    This library is the next generation of the [NoBuild](https://github.com/tsoding/nobuild) idea.
@@ -1148,26 +1160,26 @@ NOBDEF bool nob_mkdir_if_not_exists(const char *path)
 #endif
     if (result < 0) {
         if (errno == EEXIST) {
-#ifndef NOB_NO_ECHO
+if (!nob_no_echo){
             nob_log(NOB_INFO, "directory `%s` already exists", path);
-#endif // NOB_NO_ECHO
+}
             return true;
         }
         nob_log(NOB_ERROR, "could not create directory `%s`: %s", path, strerror(errno));
         return false;
     }
 
-#ifndef NOB_NO_ECHO
+if (!nob_no_echo){
     nob_log(NOB_INFO, "created directory `%s`", path);
-#endif // NOB_NO_ECHO
+}
     return true;
 }
 
 NOBDEF bool nob_copy_file(const char *src_path, const char *dst_path)
 {
-#ifndef NOB_NO_ECHO
+if (!nob_no_echo){
     nob_log(NOB_INFO, "copying %s -> %s", src_path, dst_path);
-#endif // NOB_NO_ECHO
+}
 #ifdef _WIN32
     if (!CopyFile(src_path, dst_path, FALSE)) {
         nob_log(NOB_ERROR, "Could not copy file: %s", nob_win32_error_message(GetLastError()));
@@ -1541,14 +1553,14 @@ static Nob_Proc nob__cmd_start_process(Nob_Cmd cmd, Nob_Fd *fdin, Nob_Fd *fdout,
         return NOB_INVALID_PROC;
     }
 
-#ifndef NOB_NO_ECHO
+if (!nob_no_echo){
     Nob_String_Builder sb = {0};
     nob_cmd_render(cmd, &sb);
     nob_sb_append_null(&sb);
     nob_log(NOB_INFO, "CMD: %s", sb.items);
     nob_sb_free(sb);
     memset(&sb, 0, sizeof(sb));
-#endif // NOB_NO_ECHO
+}
 
 #ifdef _WIN32
     // https://docs.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
@@ -2284,9 +2296,9 @@ NOBDEF Nob_File_Type nob_get_file_type(const char *path)
 
 NOBDEF bool nob_delete_file(const char *path)
 {
-#ifndef NOB_NO_ECHO
+if (!nob_no_echo){
     nob_log(NOB_INFO, "deleting %s", path);
-#endif // NOB_NO_ECHO
+}
 #ifdef _WIN32
     Nob_File_Type type = nob_get_file_type(path);
     switch (type) {
@@ -2544,9 +2556,9 @@ NOBDEF const char *nob_path_name(const char *path)
 
 NOBDEF bool nob_rename(const char *old_path, const char *new_path)
 {
-#ifndef NOB_NO_ECHO
+if (!nob_no_echo){
     nob_log(NOB_INFO, "renaming %s -> %s", old_path, new_path);
-#endif // NOB_NO_ECHO
+}
 #ifdef _WIN32
     if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
         nob_log(NOB_ERROR, "could not rename %s to %s: %s", old_path, new_path, nob_win32_error_message(GetLastError()));

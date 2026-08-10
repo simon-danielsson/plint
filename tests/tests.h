@@ -1,16 +1,19 @@
 #ifndef TESTS_H
 #define TESTS_H
 
-void _run_tests(void);
+#include "../src/main.h"
+
+extern uint failures, total;
 
 #define test_assert(cond)                                                      \
   do {                                                                         \
     char tmp[64];                                                              \
-    snprintf(tmp, 64, "%s()", __func__);                                       \
+    snprintf(tmp, 64, "%s", __func__);                                         \
     if (!(cond)) {                                                             \
-      fprintf(stderr, "\033[4mFailure -> %-18s%s\033[0m\n", tmp, #cond);       \
+      fprintf(stderr, "\033[4mFailure -> %-24s%s\033[0m\n", tmp, #cond);       \
+      failures += 1;                                                           \
     } else {                                                                   \
-      fprintf(stderr, "Success -> %-18s%s\n", tmp, #cond);                     \
+      fprintf(stderr, "Success -> %-24s%s\n", tmp, #cond);                     \
     }                                                                          \
   } while (0)
 

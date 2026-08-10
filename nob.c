@@ -1,12 +1,18 @@
-#define PROJ_NAME "plint"
-#define NOB_NO_ECHO
+/*
+   ctmp : A project template for C powered by nob.h.
+
+   Source(s):
+   https://github.com/simon-danielsson/ctmp/
+   https://github.com/tsoding/nob.h
+
+   License information @ EOF.
+   */
+
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 #include "src/main.h"
 
-#ifndef PROJ_NAME
-#define PROJ_NAME "init"
-#endif
+#define PROJ_NAME "plint"
 
 typedef struct {
     char *project;
@@ -22,8 +28,7 @@ typedef struct {
 
 global_var EnvVars env_variables = (EnvVars){
     .project = PROJ_NAME,
-    .description = "Header-only C library for building and serving websites.",
-
+    .description = "This is a new C project!",
     .author = "Simon Danielsson",
     .contact = "contact@simondanielsson.se",
     .website = "https://simondanielsson.se/",
@@ -78,7 +83,15 @@ typedef enum {
     ARG_PRG,
 } ArgParserState;
 
-typedef enum { NORMAL, F_HELP, F_NO_RUN, C_TEST, C_RELEASE, C_EMBED } ArgKind;
+typedef enum {
+    NORMAL,
+    F_HELP,
+    F_VERBOSE,
+    F_NO_RUN,
+    C_TEST,
+    C_RELEASE,
+    C_EMBED
+} ArgKind;
 
 intern_fn void get_git_details(ArgKind build_kind);
 
@@ -94,6 +107,10 @@ global_var Arg arguments[] = {
         .str = "-h",
         .str_alt = "--help",
         .descr = "Display help."},
+    [F_VERBOSE] = (Arg){.kind = F_VERBOSE,
+        .str = "-v",
+        .str_alt = "--verbose",
+        .descr = "Enable verbose output."},
     [F_NO_RUN] = (Arg){.kind = F_NO_RUN,
         .str = "-n",
         .str_alt = "--no-run",
@@ -114,9 +131,12 @@ global_var Arg arguments[] = {
                 "Embed content of files in 'src/static' into header files."},
 };
 
+bool nob_no_echo = true;
+
 // program --------------------------------------------------------------------
 
 int main(int argc, char **argv) {
+    // bool nob_no_echo = false;
 
     char *prg_args[24] = {0};
     size_t prg_args_count = 0;
@@ -148,6 +168,10 @@ int main(int argc, char **argv) {
                     strcmp(argv[i], arguments[F_HELP].str_alt) == 0) {
                 print_help();
                 return 0;
+            } else if (strcmp(argv[i], arguments[F_VERBOSE].str) == 0 ||
+                    strcmp(argv[i], arguments[F_VERBOSE].str_alt) == 0) {
+                nob_no_echo = false;
+
             } else if (strcmp(argv[i], arguments[F_NO_RUN].str) == 0 ||
                     strcmp(argv[i], arguments[F_NO_RUN].str_alt) == 0) {
                 no_run = true;
@@ -421,3 +445,25 @@ intern_fn void get_git_details(ArgKind build_kind) {
         get_git_details_helper(env_variables.git_hash);
     }
 }
+
+/*
+   Copyright © 2026 Simon Danielsson
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files, to deal in the Software
+   without restriction, including without limitation the rights to use, copy,
+   modify, merge, publish, distribute, sublicense, and/or sell copies of the
+   Software, and to permit persons to whom the Software is furnished to do so,
+   subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+   */

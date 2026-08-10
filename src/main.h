@@ -1,8 +1,6 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "../tests/tests.h"
-
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>

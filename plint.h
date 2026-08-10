@@ -53,6 +53,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <sys/types.h>
 #include <unistd.h>
 
+#define global_var static
+#define intern_fn static
+typedef uint32_t uint;
+
 #ifndef PLINT_NO_LOG
 #define Plint_log(...)                                                         \
   do {                                                                         \

@@ -1,4 +1,5 @@
 #define PROJ_NAME "plint"
+#define NOB_NO_ECHO
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 #include "src/main.h"

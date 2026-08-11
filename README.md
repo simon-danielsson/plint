@@ -28,11 +28,13 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
   
 ### Features
 - HTTP/1.1 support
-- Serves static files
+- Serving of static files
+- Runtime HTML embedding with jinja-style "{{% include /file.html %}}"
 
 ### Planned features
 - Handling of POST requests
-- HTML template system
+- Custom 404 page (fallback route)
+- HTML template rendering engine based on [Jinja](https://github.com/pallets/jinja/) and [Askama](https://github.com/askama-rs/askama)
   
 ### Requirements
 - C99 or newer
@@ -65,14 +67,14 @@ int main(void) {
     PlintServer ps = {0};
 
     PlintServer_append_route(
-            &ps, &(PlintRoute){.route = "/", .file_path = "./site/index.html"});
+            &ps, &(PlintRoute){.route = "/", .file_path = "assets/index.html"});
 
     PlintServer_append_route(
             &ps,
-            &(PlintRoute){.route = "/projects", .file_path = "./site/projects.html"});
+            &(PlintRoute){.route = "/projects", .file_path = "assets/projects.html"});
 
     PlintServer_append_route(&ps, &(PlintRoute){.route = "/favicon.ico",
-            .file_path = "./site/white.ico"});
+            .file_path = "assets/white.ico"});
 
     ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
 

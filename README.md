@@ -29,15 +29,14 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 ### Features
     
 
-| Feature | Implemented | Priority |
-|------|-------|-------------|
-| Basic HTTP IPv4 support | X | |
-| Serving of static files | X | |
-| HTML embedding "{{% include /file.html}}" | X | |
-| POST request handling | | Low |
-| Custom 404 route (i.e fallback page) | | High |
-| Bulk asset directory routing | | High |
-| Template rendering engine based on [Jinja](https://github.com/pallets/jinja/) | | Medium |
+| Feature | Status |
+|------|-------|
+|Basic HTTP IPv4 support |100%|
+|Serving of static files |100%|
+|Basic HTML template engine based on [Jinja](https://github.com/pallets/jinja/) | 10% |
+|Custom 404 route (i.e fallback page) | 0% |
+|Bulk asset directory routing | 0% | 
+|POST request handling | 0% | 
 
   
 ### Requirements
@@ -49,7 +48,7 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 
 ## Install
   
-Download (or copy) [plint.h](./plint.h) into your codebase and include it like this:
+Download (or copy-paste) [plint.h](./plint.h) into your codebase and include it like this:
   
 ``` c
 #define PLINT_IMPLEMENTATION

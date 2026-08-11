@@ -27,14 +27,18 @@
 Plint is (at its core) a wrapper around the Unix networking API; it's adequate for projects such as static websites with low traffic.
   
 ### Features
-- HTTP/1.1 support
-- Serving of static files
-- Runtime HTML embedding with jinja-style "{{% include /file.html %}}"
+    
 
-### Planned features
-- Handling of POST requests
-- Custom 404 page (fallback route)
-- HTML template rendering engine based on [Jinja](https://github.com/pallets/jinja/) and [Askama](https://github.com/askama-rs/askama)
+| Feature | Implemented | Priority |
+|------|-------|-------------|
+| Basic HTTP IPv4 support | X | |
+| Serving of static files | X | |
+| HTML embedding "{{% include /file.html}}" | X | |
+| POST request handling | | Low |
+| Custom 404 route (i.e fallback page) | | High |
+| Bulk asset directory routing | | High |
+| Template rendering engine based on [Jinja](https://github.com/pallets/jinja/) | | Medium |
+
   
 ### Requirements
 - C99 or newer

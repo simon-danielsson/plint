@@ -36,6 +36,7 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 |Basic HTML template engine based on [Jinja](https://github.com/pallets/jinja/) | 10% |
 |Custom 404 route (i.e fallback page) | 0% |
 |Bulk asset directory routing | 0% | 
+|Asset caching| 0% | 
 |POST request handling | 0% | 
 
   
@@ -106,6 +107,7 @@ case of this library, everything regarding UNIX networking can be found on the m
 - https://en.wikibooks.org/wiki/C_programming/Networking_in_UNIX
 - https://github.com/rexim/tore/
 - https://github.com/pallets/jinja/
+- https://sourceware.org/glibc/manual/latest/html_mono/libc.html
     
 ---
 <div id="license"></div>

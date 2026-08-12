@@ -46,7 +46,6 @@ global_var char *compilation_flags[] = {
     "-fno-omit-frame-pointer",
     "-Wall",
     "-Wpedantic",
-    "-Wshadow",
     "-Werror=format-security",
 };
 

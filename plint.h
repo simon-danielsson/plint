@@ -45,7 +45,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
-#include <math.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdbool.h>

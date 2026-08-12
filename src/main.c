@@ -109,6 +109,52 @@ typedef struct {
 
 */
 
+/*
+   ------------------------ PLINT HTML TEMPLATE SYSTEM ------------------------
+
+   > reserved keywords: include, var, loop, item, end
+
+   ----
+
+   > include
+   > - path resolved from current directory at program execution, at runtime
+
+   %% include "incl/hello.html" %%
+
+   ----
+
+   > variable
+   > - variables are added in code via PlintServer_append_variable()
+   > - any variables you add are global, and can therefore be accessed from
+   > - anywhere in your html documents (so be cautious with name collisions!)
+   > - you can add either single variables(char*,int) or arrays(char*[], int[])
+
+   > - specifying a single variable:
+   <div>
+   <p>%% var "my_variable" %%</p>
+   </div>
+
+   > - specifying an element from an array variable:
+   <div>
+   <p>%% var "my_array" 3 %%</p>
+   </div>
+
+   ----
+
+   > loop
+   > - added in code via PlintServer_append_variable()
+   > - will iterate through all items in an array indiscriminately
+
+   <div>
+   <h3>Contact</h3>
+   %% loop "arr_contact_info" %%
+   <p>%% item %%</p>
+   %% end %%
+   </div>
+
+   ----------------------------------------------------------------------------
+   */
+
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr);
 

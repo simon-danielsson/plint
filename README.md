@@ -24,7 +24,7 @@
 
 ## Info
   
-Plint is (at its core) a wrapper around the Unix networking API; it's adequate for projects such as static websites with low traffic.
+Plint is (at its core) a wrapper around the Unix networking API; it's adequate for projects such as static websites with low traffic. For deployment, just slap an [nginx](https://nginx.org/en/) reverse proxy on top of it.
   
 ### Features
     
@@ -38,6 +38,7 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 |Bulk asset directory routing | 0% | 
 |Asset caching| 0% | 
 |POST request handling | 0% | 
+|Pragmatic error model for messages| 0% | 
 
   
 ### Requirements

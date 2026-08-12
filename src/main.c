@@ -1,7 +1,5 @@
 #include "main.h"
 
-// #define PLINT_NO_LOG
-
 /*
 
    socket(AF_INET, socket_type, protocol);
@@ -78,7 +76,7 @@
 
    > - specifying a single variable:
    <div>
-   <p>{{ my_variable }} %}</p>
+   <p>{{ my_variable }}</p>
    </div>
 
    > - specifying an element from an array variable:

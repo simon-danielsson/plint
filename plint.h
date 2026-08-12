@@ -1,3 +1,4 @@
+
 /*
 
 -------------------------------------------------------------------------------
@@ -106,6 +107,48 @@ typedef struct {
 #define Plint_log(...)
 #endif
 
+typedef enum {
+  _PLT_PATH_NOT_FOUND,
+  _PLT_ROUTE_NOT_FOUND,
+  _PLT_MAX_ROUTES_EXCEED,
+  _PLT_FAILED_TO_OPEN,
+  _PLT_FAILED_TO_READ,
+  _PLT_BUFFER_EXCEED,
+  _PLT_PARSE_FAILURE,
+} _PlintErrKind;
+
+#define Plint_err(ERR_KIND, ...)                                               \
+  do {                                                                         \
+    char *msg;                                                                 \
+    switch ((ERR_KIND)) {                                                      \
+    case _PLT_MAX_ROUTES_EXCEED:                                               \
+      msg = "max routes exceeded";                                             \
+      break;                                                                   \
+    case _PLT_BUFFER_EXCEED:                                                   \
+      msg = "buffer exceeded";                                                 \
+      break;                                                                   \
+    case _PLT_ROUTE_NOT_FOUND:                                                 \
+      msg = "route not found";                                                 \
+      break;                                                                   \
+    case _PLT_PATH_NOT_FOUND:                                                  \
+      msg = "path not found";                                                  \
+      break;                                                                   \
+    case _PLT_FAILED_TO_OPEN:                                                  \
+      msg = "failed to open";                                                  \
+      break;                                                                   \
+    case _PLT_FAILED_TO_READ:                                                  \
+      msg = "failed to read";                                                  \
+      break;                                                                   \
+    case _PLT_PARSE_FAILURE:                                                   \
+      msg = "parse failure";                                                   \
+      break;                                                                   \
+    }                                                                          \
+    char tmp[256] = {0};                                                       \
+    snprintf(tmp, 256, __VA_ARGS__);                                           \
+    printf("[ERROR] %s: '%s' \n", msg, tmp);                                   \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
+
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr);
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
@@ -113,26 +156,24 @@ void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 #ifdef PLINT_IMPLEMENTATION
 
-// returns new offset on success (current_pos + chars read) or -1 on failure
+// returns new offset on success (current_pos + chars read)
 intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   FILE *fp = fopen(path, "rb");
   if (!fp) {
-    fprintf(stderr, "[ERROR] failed to open: '%s'\n", path);
-    return -1;
+    fclose(fp);
+    Plint_err(_PLT_FAILED_TO_OPEN, "%s", path);
   }
 
   if (offset >= _PLINT_BUF_SZ - 1) {
-    fprintf(stderr, "[ERROR] no space in buffer for '%s'\n", path);
     fclose(fp);
-    return -1;
+    Plint_err(_PLT_BUFFER_EXCEED, "%s", path);
   }
 
   int c;
   while ((c = fgetc(fp)) != EOF) {
     if (offset >= _PLINT_BUF_SZ - 1) {
-      fprintf(stderr, "[ERROR] buffer full reading '%s'\n", path);
       fclose(fp);
-      return -1;
+      Plint_err(_PLT_BUFFER_EXCEED, "%s", path);
     }
     buf[offset++] = (char)c;
   }
@@ -141,7 +182,7 @@ intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   return (int)offset;
 }
 
-bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
+void _Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
 #define _plint_upcoming (char[]){cont[i], cont[i + 1], 0}
   // TODO: my parsing error checking could be described as "lazy" at best
 #define _plint_file_emb_inc(n, append)                                         \
@@ -154,8 +195,7 @@ bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
           i++;                                                                 \
         }                                                                      \
     } else {                                                                   \
-      fprintf(stderr, "[ERROR] parse failure near: '%s'", file);               \
-      return false;                                                            \
+      Plint_err(_PLT_PARSE_FAILURE, "%s", file);                               \
     }                                                                          \
   } while (0)
 
@@ -191,7 +231,7 @@ bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
         int new_offset = _Plint_read_file_at(new_cont, out_offset, tmp);
 
         if (new_offset <= 0)
-          return false;
+          Plint_err(_PLT_PARSE_FAILURE, "%s", file);
 
         new_cont_len = (size_t)new_offset;
 
@@ -201,7 +241,6 @@ bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
     _plint_file_emb_inc(1, true);
   }
   new_cont[new_cont_len] = '\0';
-  return true;
 }
 
 // TODO: the method of getting the extension could potentially be buggy
@@ -229,8 +268,7 @@ intern_fn char *_Plint_mime_type_get(char *file_path) {
 
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
   if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
-    perror("max routes exceeded");
-    exit(EXIT_FAILURE);
+    Plint_err(_PLT_MAX_ROUTES_EXCEED, "%d", _PLINT_MAX_ROUTES);
   }
   pr->_mime = _Plint_mime_type_get(pr->file_path);
 
@@ -239,21 +277,14 @@ bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
 
     int fs = open(pr->file_path, O_RDONLY);
     if (fs < 0) {
-      fprintf(stderr, "[ERROR] file not found: '%s'", pr->file_path);
-      return false;
+      Plint_err(_PLT_PATH_NOT_FOUND, "%s", pr->file_path);
     }
     close(fs);
 
     char html[_PLINT_BUF_SZ] = {0};
     char buf[_PLINT_BUF_SZ] = {0};
-    if (_Plint_read_file_at(buf, 0, pr->file_path) < 0) {
-      fprintf(stderr, "[ERROR] failed to read file: '%s'", pr->file_path);
-      return false;
-    };
-    if (!Plint_file_embed_if_include(html, buf, pr->file_path)) {
-      fprintf(stderr, "[ERROR] failed to scan file: '%s'", pr->file_path);
-      return false;
-    };
+    _Plint_read_file_at(buf, 0, pr->file_path);
+    _Plint_file_embed_if_include(html, buf, pr->file_path);
 
     strcpy(pr->_content, html);
     pr->_content_size = sizeof(html);

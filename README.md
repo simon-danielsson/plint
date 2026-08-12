@@ -33,12 +33,12 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 |------|-------|
 |Basic HTTP IPv4 support |100%|
 |Serving of static files |100%|
+|Pragmatic error messages | 100% | 
 |Basic HTML template system | 10% |
 |User 404 route (i.e fallback page) | 0% |
 |Bulk asset directory routing | 0% | 
 |Asset caching| 0% | 
 |POST request handling | 0% | 
-|Pragmatic error model for messages| 0% | 
 
   
 ### Requirements

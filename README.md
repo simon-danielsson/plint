@@ -1,4 +1,6 @@
-<h1 align="center">Plint</h1>
+<p align="center">
+    <img src="media/logo.png" alt="plint" width="110"/>
+</p>
   
 <p align="center">
   <em>Header-only C library for building basic static websites.</em>

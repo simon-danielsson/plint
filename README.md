@@ -67,24 +67,36 @@ Download (or copy-paste) [plint.h](./plint.h) into your codebase and include it 
 #define PLINT_IMPLEMENTATION
 #include "plint.h"
 
+bool setup(PlintServer *ps);
+
 int main(void) {
     PlintServer ps = {0};
 
-    PlintServer_append_route(
-            &ps, &(PlintRoute){.route = "/", .file_path = "assets/index.html"});
-
-    PlintServer_append_route(
-            &ps,
-            &(PlintRoute){.route = "/projects", .file_path = "assets/projects.html"});
-
-    PlintServer_append_route(&ps, &(PlintRoute){.route = "/favicon.ico",
-            .file_path = "assets/white.ico"});
+    if (!setup(&ps))
+        return EXIT_FAILURE;
 
     ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
 
     PlintServer_start(&ps, server_addr);
 
     return 0;
+}
+
+bool setup(PlintServer *ps) {
+    if (!PlintServer_append_route(
+                ps, &(PlintRoute){.route = "/", .file_path = "assets/index.html"}))
+        return false;
+
+    if (!PlintServer_append_route(
+                ps, &(PlintRoute){.route = "/projects",
+                .file_path = "assets/projects.html"}))
+        return false;
+
+    if (!PlintServer_append_route(ps,
+                &(PlintRoute){.route = "/favicon.ico",
+                .file_path = "assets/white.ico"}))
+        return false;
+    return true;
 }
 ```
     

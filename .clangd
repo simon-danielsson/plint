@@ -1,5 +1,8 @@
 CompileFlags:
   Add:
+    - -DPLINT_IMPLEMENTATION
+    - -xc
+    - -std=c99
     - -Wno-c23-extensions
     - -Wextra
     - -Wsign-conversion

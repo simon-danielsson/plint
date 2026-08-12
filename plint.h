@@ -60,6 +60,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <time.h>
 #include <unistd.h>
 
+#define global_var static
+#define intern_fn static
+typedef uint32_t uint;
+
 typedef struct {
   uint8_t ip[4];
   uint16_t port;
@@ -68,13 +72,12 @@ typedef struct {
 #define _PLINT_MAX_ROUTES 100
 #define _PLINT_BUF_SZ 20000
 
-#define global_var static
-#define intern_fn static
-typedef uint32_t uint;
-
 typedef struct {
+  off_t _content_size;
+  char _content[_PLINT_BUF_SZ];
   char *route;
   char *file_path;
+  char *_mime;
 } PlintRoute;
 
 typedef struct {
@@ -103,7 +106,7 @@ typedef struct {
 #define Plint_log(...)
 #endif
 
-void PlintServer_append_route(PlintServer *ps, const PlintRoute *pr);
+bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr);
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 #endif // _PLINT_DEF
@@ -139,7 +142,7 @@ intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
 }
 
 bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
-#define _plint_upcoming (char[]){cont[i], cont[i + 1], cont[i + 2], 0}
+#define _plint_upcoming (char[]){cont[i], cont[i + 1], 0}
   // TODO: my parsing error checking could be described as "lazy" at best
 #define _plint_file_emb_inc(n, append)                                         \
   do {                                                                         \
@@ -164,7 +167,7 @@ bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
 
   while (i < len) {
     if (i < len - 3) {
-      if (strcmp(_plint_upcoming, "{{%") == 0) {
+      if (strcmp(_plint_upcoming, "%%") == 0) {
         memset(tmp, 0, _plint_tmp_sz);
 #undef _plint_tmp_sz
         int j = 0;
@@ -179,7 +182,7 @@ bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
           _plint_file_emb_inc(1, false);
         }
 
-        while (strcmp(_plint_upcoming, "%}}") != 0) {
+        while (strcmp(_plint_upcoming, "%%") != 0) {
           _plint_file_emb_inc(1, false);
         }
 
@@ -201,33 +204,8 @@ bool Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
   return true;
 }
 
-void PlintServer_append_route(PlintServer *ps, const PlintRoute *pr) {
-  if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
-    perror("max routes exceeded");
-    exit(EXIT_FAILURE);
-  }
-  ps->route[ps->n_routes] = *pr;
-  ps->n_routes++;
-}
-
-// helper: PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr)
-intern_fn struct sockaddr_in
-_PlintServer_init_socket_address(const ServerAddressIPv4 saddr) {
-  in_addr_t ip[sizeof(struct in_addr)];
-  int s;
-  {
-    char tmp[64] = {0};
-    snprintf(tmp, 64, "%d.%d.%d.%d", saddr.ip[0], saddr.ip[1], saddr.ip[2],
-             saddr.ip[3]);
-    s = inet_pton(AF_INET, tmp, ip);
-    if (s <= 0) {
-      perror("inet_pton");
-    }
-  }
-  return (struct sockaddr_in){
-      .sin_family = AF_INET, .sin_port = htons(saddr.port), {ip[0]}};
-}
-
+// TODO: the method of getting the extension could potentially be buggy
+// if there ever was a file called "document.bak.html" or similar?
 intern_fn char *_Plint_mime_type_get(char *file_path) {
   char *ext = strrchr(file_path, '.');
   if (!ext)
@@ -249,7 +227,97 @@ intern_fn char *_Plint_mime_type_get(char *file_path) {
   return "text/plain";
 }
 
-intern_fn void _Plint_file_serve(int client_socket, char *file_path) {
+bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
+  if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
+    perror("max routes exceeded");
+    exit(EXIT_FAILURE);
+  }
+  pr->_mime = _Plint_mime_type_get(pr->file_path);
+
+  // process html template
+  if (strstr(pr->_mime, "html")) {
+
+    int fs = open(pr->file_path, O_RDONLY);
+    if (fs < 0) {
+      fprintf(stderr, "[ERROR] file not found: '%s'", pr->file_path);
+      return false;
+    }
+    close(fs);
+
+    char html[_PLINT_BUF_SZ] = {0};
+    char buf[_PLINT_BUF_SZ] = {0};
+    if (_Plint_read_file_at(buf, 0, pr->file_path) < 0) {
+      fprintf(stderr, "[ERROR] failed to read file: '%s'", pr->file_path);
+      return false;
+    };
+    if (!Plint_file_embed_if_include(html, buf, pr->file_path)) {
+      fprintf(stderr, "[ERROR] failed to scan file: '%s'", pr->file_path);
+      return false;
+    };
+
+    strcpy(pr->_content, html);
+    pr->_content_size = sizeof(html);
+  }
+
+  ps->route[ps->n_routes] = *pr;
+  ps->n_routes++;
+  return true;
+}
+
+// helper: PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr)
+intern_fn struct sockaddr_in
+_PlintServer_init_socket_address(const ServerAddressIPv4 saddr) {
+  in_addr_t ip[sizeof(struct in_addr)];
+  int s;
+  {
+    char tmp[64] = {0};
+    snprintf(tmp, 64, "%d.%d.%d.%d", saddr.ip[0], saddr.ip[1], saddr.ip[2],
+             saddr.ip[3]);
+    s = inet_pton(AF_INET, tmp, ip);
+    if (s <= 0) {
+      perror("inet_pton");
+    }
+  }
+  return (struct sockaddr_in){
+      .sin_family = AF_INET, .sin_port = htons(saddr.port), {ip[0]}};
+}
+
+intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
+                                 char *file_path) {
+
+  // check if there is a html route among the routes that matches request.
+  // if that is the case, handle that separately from other mime types
+  for (uint i = 0; i < ps->n_routes; i++) {
+    if (strcmp(file_path, ps->route[i].file_path) == 0 &&
+        strstr(ps->route[i]._mime, "html")) {
+
+      char response_header[_PLINT_BUF_SZ];
+      snprintf(
+          response_header, _PLINT_BUF_SZ,
+          "HTTP/1.1 200 OK\r\nContent-Length: %lld\r\nContent-Type: %s\r\n\r\n",
+          ps->route[i]._content_size, ps->route[i]._mime);
+      send(client_socket, response_header, strlen(response_header), 0);
+
+      size_t sent = 0;
+
+      while (sent < (size_t)ps->route[i]._content_size) {
+        size_t to_send =
+            ((size_t)ps->route[i]._content_size - sent) < _PLINT_BUF_SZ
+                ? ((size_t)ps->route[i]._content_size - sent)
+                : _PLINT_BUF_SZ;
+
+        ssize_t n =
+            send(client_socket, ps->route[i]._content + sent, to_send, 0);
+        if (n < 0) {
+          // TODO: handle error (EAGAIN/EWOULDBLOCK)
+          break;
+        }
+        sent += (size_t)n;
+      }
+      return;
+    }
+  }
+
   int fs = open(file_path, O_RDONLY);
   if (fs < 0) {
     Plint_log("file not found: %s", file_path);
@@ -261,22 +329,7 @@ intern_fn void _Plint_file_serve(int client_socket, char *file_path) {
   char *mime = _Plint_mime_type_get(file_path);
   off_t resp_size;
 
-  char html[_PLINT_BUF_SZ] = {0};
-  if (strstr(mime, "html")) {
-    char buf[_PLINT_BUF_SZ] = {0};
-    // TODO: display 404 page fallback if any of these functions fail
-    if (_Plint_read_file_at(buf, 0, file_path) < 0) {
-      return;
-    };
-    if (!Plint_file_embed_if_include(html, buf, file_path)) {
-      fprintf(stderr, "[ERROR] failed to scan file: '%s'", file_path);
-      return;
-    };
-    // printf("%s", html);
-    resp_size = sizeof(html);
-  } else {
-    resp_size = file_stat.st_size;
-  }
+  resp_size = file_stat.st_size;
 
   char response_header[_PLINT_BUF_SZ];
   snprintf(
@@ -287,25 +340,8 @@ intern_fn void _Plint_file_serve(int client_socket, char *file_path) {
 
   char file_buffer[_PLINT_BUF_SZ];
   ssize_t bytes_read;
-  if (strstr(mime, "html")) {
-    size_t sent = 0;
-
-    while (sent < (size_t)resp_size) {
-      size_t to_send = ((size_t)resp_size - sent) < _PLINT_BUF_SZ
-                           ? ((size_t)resp_size - sent)
-                           : _PLINT_BUF_SZ;
-
-      ssize_t n = send(client_socket, html + sent, to_send, 0);
-      if (n < 0) {
-        // TODO: handle error (EAGAIN/EWOULDBLOCK)
-        break;
-      }
-      sent += (size_t)n;
-    }
-  } else {
-    while ((bytes_read = read(fs, file_buffer, _PLINT_BUF_SZ)) > 0) {
-      send(client_socket, file_buffer, (size_t)bytes_read, 0);
-    }
+  while ((bytes_read = read(fs, file_buffer, _PLINT_BUF_SZ)) > 0) {
+    send(client_socket, file_buffer, (size_t)bytes_read, 0);
   }
 
   close(fs);
@@ -314,7 +350,7 @@ intern_fn void _Plint_file_serve(int client_socket, char *file_path) {
 intern_fn void _Plint_route_handle(PlintServer *ps, int socket, char *path) {
   for (uint i = 0; i < ps->n_routes; i++) {
     if (strcmp(path, ps->route[i].route) == 0) {
-      _Plint_file_serve(socket, ps->route[i].file_path);
+      _Plint_file_serve(ps, socket, ps->route[i].file_path);
       return;
     }
   }
@@ -407,6 +443,5 @@ void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr) {
     exit(EXIT_FAILURE);
   }
 }
-
 #endif // PLINT_IMPLEMENTATION
 #endif // _INCLUDE_PLINT_H

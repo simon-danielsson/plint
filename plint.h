@@ -70,6 +70,7 @@ typedef struct {
 } ServerAddressIPv4;
 
 #define _PLINT_MAX_ROUTES 100
+#define _PLINT_MAX_VARIABLES 200
 #define _PLINT_BUF_SZ 20000
 
 typedef struct {
@@ -80,11 +81,35 @@ typedef struct {
   char *_mime;
 } PlintRoute;
 
+enum PlintVariableKind {
+  PVK_STR,
+  PVK_INT,
+  PVK_FLOAT,
+  PVK_STR_ARRAY,
+  PVK_INT_ARRAY,
+  PVK_FLOAT_ARRAY,
+};
+
+typedef struct {
+  char *key;
+  enum PlintVariableKind val_k;
+  union {
+    char *s;            // DONE
+    int i;              // TODO: add branch to _Plint_embed_variable_at();
+    float f;            // TODO: add branch to _Plint_embed_variable_at();
+    char *s_array[128]; // TODO: add branch to _Plint_embed_variable_at();
+    int i_array[128];   // TODO: add branch to _Plint_embed_variable_at();
+    float f_array[128]; // TODO: add branch to _Plint_embed_variable_at();
+  } val;
+} PlintVariable;
+
 typedef struct {
   ServerAddressIPv4 addr;
   int server_fd;
   PlintRoute route[_PLINT_MAX_ROUTES];
   uint n_routes;
+  PlintVariable variable[_PLINT_MAX_VARIABLES];
+  uint n_variables;
 } PlintServer;
 
 #ifndef PLINT_NO_LOG
@@ -109,7 +134,9 @@ typedef struct {
 typedef enum {
   _PLT_PATH_NOT_FOUND,
   _PLT_ROUTE_NOT_FOUND,
+  _PLT_VAR_NOT_FOUND,
   _PLT_MAX_ROUTES_EXCEED,
+  _PLT_MAX_VARS_EXCEED,
   _PLT_FAILED_TO_OPEN,
   _PLT_FAILED_TO_READ,
   _PLT_BUFFER_EXCEED,
@@ -120,8 +147,14 @@ typedef enum {
   do {                                                                         \
     char *msg;                                                                 \
     switch ((ERR_KIND)) {                                                      \
+    case _PLT_VAR_NOT_FOUND:                                                   \
+      msg = "variable could not be found";                                     \
+      break;                                                                   \
     case _PLT_MAX_ROUTES_EXCEED:                                               \
       msg = "max routes exceeded";                                             \
+      break;                                                                   \
+    case _PLT_MAX_VARS_EXCEED:                                                 \
+      msg = "max variables exceeded";                                          \
       break;                                                                   \
     case _PLT_BUFFER_EXCEED:                                                   \
       msg = "buffer exceeded";                                                 \
@@ -149,30 +182,72 @@ typedef enum {
   } while (0)
 
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr);
+void PlintServer_append_variable(PlintServer *ps, PlintVariable *pv);
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 #endif // _PLINT_DEF
 
 #ifdef PLINT_IMPLEMENTATION
 
+void PlintServer_append_variable(PlintServer *ps, PlintVariable *pv) {
+  if (ps->n_variables >= _PLINT_MAX_VARIABLES - 1) {
+    Plint_err(_PLT_MAX_VARS_EXCEED, "%s", pv->key);
+  }
+  ps->variable[ps->n_variables++] = *pv;
+}
+
+// returns new offset on success (current_pos + chars read)
+intern_fn int _Plint_embed_variable_at(PlintServer *ps, char *buf,
+                                       size_t offset, const char *key) {
+
+  if (offset >= _PLINT_BUF_SZ - 1) {
+    Plint_err(_PLT_BUFFER_EXCEED, "variable %s", key);
+  }
+
+  int idx = -1;
+  for (uint i = 0; i < ps->n_variables; i++) {
+    if (strcmp(ps->variable[i].key, key) == 0) {
+      idx = (int)i;
+      break;
+    }
+  }
+  if (idx < 0) {
+    Plint_err(_PLT_VAR_NOT_FOUND, "%s", key);
+  }
+
+  // Plint_log("variable {%s = %s}", ps->variable[idx].key,
+  // ps->variable[idx].val.s);
+
+  char *c = ps->variable[idx].val.s;
+  while (*c) {
+    if (offset >= _PLINT_BUF_SZ - 1) {
+      Plint_err(_PLT_BUFFER_EXCEED, "variable %s", key);
+    }
+    buf[offset++] = *c;
+    c++;
+  }
+
+  return (int)offset;
+}
+
 // returns new offset on success (current_pos + chars read)
 intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   FILE *fp = fopen(path, "rb");
   if (!fp) {
     fclose(fp);
-    Plint_err(_PLT_FAILED_TO_OPEN, "%s", path);
+    Plint_err(_PLT_FAILED_TO_OPEN, "include %s", path);
   }
 
   if (offset >= _PLINT_BUF_SZ - 1) {
     fclose(fp);
-    Plint_err(_PLT_BUFFER_EXCEED, "%s", path);
+    Plint_err(_PLT_BUFFER_EXCEED, "include %s", path);
   }
 
   int c;
   while ((c = fgetc(fp)) != EOF) {
     if (offset >= _PLINT_BUF_SZ - 1) {
       fclose(fp);
-      Plint_err(_PLT_BUFFER_EXCEED, "%s", path);
+      Plint_err(_PLT_BUFFER_EXCEED, "include %s", path);
     }
     buf[offset++] = (char)c;
   }
@@ -181,7 +256,8 @@ intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   return (int)offset;
 }
 
-void _Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
+void _Plint_file_embed_if_include(PlintServer *ps, char *new_cont, char *cont,
+                                  char *file) {
 #define _plint_upcoming (char[]){cont[i], cont[i + 1], 0}
   // TODO: my parsing error checking could be described as "lazy" at best
 #define _plint_file_emb_inc(n, append)                                         \
@@ -206,11 +282,45 @@ void _Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
 
   while (i < len) {
     if (i < len - 3) {
-      if (strcmp(_plint_upcoming, "%%") == 0) {
+
+      // variable
+      if (strcmp(_plint_upcoming, "{{") == 0) {
+        memset(tmp, 0, _plint_tmp_sz);
+        int j = 0;
+        _plint_file_emb_inc(2, false);
+        while (cont[i] == ' ') {
+          _plint_file_emb_inc(1, false);
+        }
+
+        //_plint_file_emb_inc(1, false);
+        while (cont[i] != ' ' && cont[i] != '}') {
+          tmp[j++] = cont[i];
+          _plint_file_emb_inc(1, false);
+        }
+
+        while (strcmp(_plint_upcoming, "}}") != 0) {
+          _plint_file_emb_inc(1, false);
+        }
+
+        size_t out_offset = new_cont_len;
+
+        int new_offset =
+            _Plint_embed_variable_at(ps, new_cont, out_offset, tmp);
+
+        if (new_offset <= 0)
+          Plint_err(_PLT_PARSE_FAILURE, "%s", file);
+
+        new_cont_len = (size_t)new_offset;
+
+        _plint_file_emb_inc(2, false);
+      }
+
+      // include
+      if (strcmp(_plint_upcoming, "{%") == 0) {
         memset(tmp, 0, _plint_tmp_sz);
 #undef _plint_tmp_sz
         int j = 0;
-        _plint_file_emb_inc(3, false);
+        _plint_file_emb_inc(2, false);
         while (cont[i] != '"') {
           _plint_file_emb_inc(1, false);
         }
@@ -221,7 +331,7 @@ void _Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
           _plint_file_emb_inc(1, false);
         }
 
-        while (strcmp(_plint_upcoming, "%%") != 0) {
+        while (strcmp(_plint_upcoming, "%}") != 0) {
           _plint_file_emb_inc(1, false);
         }
 
@@ -234,11 +344,12 @@ void _Plint_file_embed_if_include(char *new_cont, char *cont, char *file) {
 
         new_cont_len = (size_t)new_offset;
 
-        _plint_file_emb_inc(3, false);
+        _plint_file_emb_inc(2, false);
       }
     }
     _plint_file_emb_inc(1, true);
   }
+#undef _plint_tmp_sz
   new_cont[new_cont_len] = '\0';
 }
 
@@ -269,6 +380,8 @@ bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
   if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
     Plint_err(_PLT_MAX_ROUTES_EXCEED, "%d", _PLINT_MAX_ROUTES);
   }
+  Plint_log("appending route: %s", pr->file_path);
+
   pr->_mime = _Plint_mime_type_get(pr->file_path);
 
   // process html template
@@ -283,7 +396,7 @@ bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
     char html[_PLINT_BUF_SZ] = {0};
     char buf[_PLINT_BUF_SZ] = {0};
     _Plint_read_file_at(buf, 0, pr->file_path);
-    _Plint_file_embed_if_include(html, buf, pr->file_path);
+    _Plint_file_embed_if_include(ps, html, buf, pr->file_path);
 
     strcpy(pr->_content, html);
     pr->_content_size = sizeof(html);

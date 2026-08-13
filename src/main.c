@@ -111,13 +111,15 @@
 #define PLINT_IMPLEMENTATION
 #include "../plint.h"
 
-void setup(PlintServer *ps);
+void setup_routes(PlintServer *ps);
+void setup_variables(PlintServer *ps);
 
 int main(void) {
 
     PlintServer ps = {0};
 
-    setup(&ps);
+    setup_variables(&ps);
+    setup_routes(&ps);
 
     ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
 
@@ -126,14 +128,22 @@ int main(void) {
     return 0;
 }
 
-void setup(PlintServer *ps) {
+void setup_variables(PlintServer *ps) {
+    PlintServer_append_variable(
+            ps, &(PlintVariable){
+            .key = "me", .val_k = PVK_STR, .val.s = "Simon Danielsson"});
+}
+
+#define ROOT_DIR "files/"
+void setup_routes(PlintServer *ps) {
     PlintServer_append_route(
-            ps, &(PlintRoute){.route = "/", .file_path = "files/index.html"});
+            ps, &(PlintRoute){.route = "/", .file_path = ROOT_DIR "index.html"});
 
     PlintServer_append_route(
-            ps,
-            &(PlintRoute){.route = "/projects", .file_path = "files/projects.html"});
+            ps, &(PlintRoute){.route = "/projects",
+            .file_path = ROOT_DIR "projects.html"});
 
-    PlintServer_append_route(ps, &(PlintRoute){.route = "/favicon.ico",
-            .file_path = "files/white.ico"});
+    PlintServer_append_route(ps,
+            &(PlintRoute){.route = "/favicon.ico",
+            .file_path = ROOT_DIR "white.ico"});
 }

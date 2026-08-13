@@ -45,6 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
+#include <math.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stdbool.h>
@@ -61,7 +62,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <unistd.h>
 
 #define global_var static
-#define intern_fn static
+#define internal static
 typedef uint32_t uint;
 
 typedef struct {
@@ -84,6 +85,7 @@ typedef struct {
 enum PlintVariableKind {
   PVK_STR,
   PVK_INT,
+  PVK_BOOL,
   PVK_FLOAT,
   PVK_STR_ARRAY,
   PVK_INT_ARRAY,
@@ -95,6 +97,7 @@ typedef struct {
   enum PlintVariableKind val_k;
   union {
     char *s;            // DONE
+    bool b;             // TODO: add branch to _Plint_embed_variable_at();
     int i;              // TODO: add branch to _Plint_embed_variable_at();
     float f;            // TODO: add branch to _Plint_embed_variable_at();
     char *s_array[128]; // TODO: add branch to _Plint_embed_variable_at();
@@ -113,7 +116,7 @@ typedef struct {
 } PlintServer;
 
 #ifndef PLINT_NO_LOG
-#define Plint_log(...)                                                         \
+#define _PlintLog(...)                                                         \
   do {                                                                         \
     time_t rawtime;                                                            \
     struct tm *timeinfo;                                                       \
@@ -128,7 +131,7 @@ typedef struct {
     printf("[%s] %s \n", time_str, tmp);                                       \
   } while (0)
 #else
-#define Plint_log(...)
+#define _PlintLog(...)
 #endif
 
 typedef enum {
@@ -143,7 +146,7 @@ typedef enum {
   _PLT_PARSE_FAILURE,
 } _PlintErrKind;
 
-#define Plint_err(ERR_KIND, ...)                                               \
+#define _PlintErr(ERR_KIND, ...)                                               \
   do {                                                                         \
     char *msg;                                                                 \
     switch ((ERR_KIND)) {                                                      \
@@ -191,17 +194,29 @@ void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 void PlintServer_append_variable(PlintServer *ps, PlintVariable *pv) {
   if (ps->n_variables >= _PLINT_MAX_VARIABLES - 1) {
-    Plint_err(_PLT_MAX_VARS_EXCEED, "%s", pv->key);
+    _PlintErr(_PLT_MAX_VARS_EXCEED, "%s", pv->key);
   }
   ps->variable[ps->n_variables++] = *pv;
 }
 
+internal size_t _Plint_char_len_of_float(float f, int precision) {
+  return snprintf(NULL, 0, "%.*f", precision, f);
+}
+
+internal size_t _Plint_char_len_of_int(int i) {
+  size_t len = 1;
+  if (i != 0) {
+    len = floor(log10(abs(i))) + 1;
+  }
+  return len;
+}
+
 // returns new offset on success (current_pos + chars read)
-intern_fn int _Plint_embed_variable_at(PlintServer *ps, char *buf,
-                                       size_t offset, const char *key) {
+internal int _Plint_embed_variable_at(PlintServer *ps, char *buf, size_t offset,
+                                      const char *key) {
 
   if (offset >= _PLINT_BUF_SZ - 1) {
-    Plint_err(_PLT_BUFFER_EXCEED, "variable %s", key);
+    _PlintErr(_PLT_BUFFER_EXCEED, "variable %s", key);
   }
 
   int idx = -1;
@@ -212,16 +227,16 @@ intern_fn int _Plint_embed_variable_at(PlintServer *ps, char *buf,
     }
   }
   if (idx < 0) {
-    Plint_err(_PLT_VAR_NOT_FOUND, "%s", key);
+    _PlintErr(_PLT_VAR_NOT_FOUND, "%s", key);
   }
 
-  // Plint_log("variable {%s = %s}", ps->variable[idx].key,
+  // _PlintLog("variable {%s = %s}", ps->variable[idx].key,
   // ps->variable[idx].val.s);
 
   char *c = ps->variable[idx].val.s;
   while (*c) {
     if (offset >= _PLINT_BUF_SZ - 1) {
-      Plint_err(_PLT_BUFFER_EXCEED, "variable %s", key);
+      _PlintErr(_PLT_BUFFER_EXCEED, "variable %s", key);
     }
     buf[offset++] = *c;
     c++;
@@ -231,23 +246,23 @@ intern_fn int _Plint_embed_variable_at(PlintServer *ps, char *buf,
 }
 
 // returns new offset on success (current_pos + chars read)
-intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
+internal int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   FILE *fp = fopen(path, "rb");
   if (!fp) {
     fclose(fp);
-    Plint_err(_PLT_FAILED_TO_OPEN, "include %s", path);
+    _PlintErr(_PLT_FAILED_TO_OPEN, "include %s", path);
   }
 
   if (offset >= _PLINT_BUF_SZ - 1) {
     fclose(fp);
-    Plint_err(_PLT_BUFFER_EXCEED, "include %s", path);
+    _PlintErr(_PLT_BUFFER_EXCEED, "include %s", path);
   }
 
   int c;
   while ((c = fgetc(fp)) != EOF) {
     if (offset >= _PLINT_BUF_SZ - 1) {
       fclose(fp);
-      Plint_err(_PLT_BUFFER_EXCEED, "include %s", path);
+      _PlintErr(_PLT_BUFFER_EXCEED, "include %s", path);
     }
     buf[offset++] = (char)c;
   }
@@ -256,8 +271,15 @@ intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   return (int)offset;
 }
 
-void _Plint_file_embed_if_include(PlintServer *ps, char *new_cont, char *cont,
-                                  char *file) {
+typedef enum {
+  IF,
+  LOOP,
+  INCLUDE,
+} _PlintTemplKind;
+
+internal void _Plint_file_process_template_engine(PlintServer *ps,
+                                                  char *new_cont, char *cont,
+                                                  char *file) {
 #define _plint_upcoming (char[]){cont[i], cont[i + 1], 0}
   // TODO: my parsing error checking could be described as "lazy" at best
 #define _plint_file_emb_inc(n, append)                                         \
@@ -270,7 +292,7 @@ void _Plint_file_embed_if_include(PlintServer *ps, char *new_cont, char *cont,
           i++;                                                                 \
         }                                                                      \
     } else {                                                                   \
-      Plint_err(_PLT_PARSE_FAILURE, "%s", file);                               \
+      _PlintErr(_PLT_PARSE_FAILURE, "%s", file);                               \
     }                                                                          \
   } while (0)
 
@@ -308,25 +330,49 @@ void _Plint_file_embed_if_include(PlintServer *ps, char *new_cont, char *cont,
             _Plint_embed_variable_at(ps, new_cont, out_offset, tmp);
 
         if (new_offset <= 0)
-          Plint_err(_PLT_PARSE_FAILURE, "%s", file);
+          _PlintErr(_PLT_PARSE_FAILURE, "%s", file);
 
         new_cont_len = (size_t)new_offset;
 
         _plint_file_emb_inc(2, false);
       }
 
-      // include
+      // include, if
+      _PlintTemplKind kind = INCLUDE;
       if (strcmp(_plint_upcoming, "{%") == 0) {
         memset(tmp, 0, _plint_tmp_sz);
 #undef _plint_tmp_sz
         int j = 0;
         _plint_file_emb_inc(2, false);
-        while (cont[i] != '"') {
+
+#define _plint_next_two_chars (char[]){cont[i], cont[i + 1], 0}
+
+        while (cont[i] == ' ') {
+          _plint_file_emb_inc(1, false);
+        }
+        bool kind_set = false;
+        while (true) {
+          if (!kind_set) {
+            if (strcmp(_plint_next_two_chars, "in") == 0) {
+              kind = INCLUDE;
+              kind_set = !kind_set;
+            } else if (strcmp(_plint_next_two_chars, "if") == 0) {
+              kind = IF;
+              kind_set = !kind_set;
+            }
+          }
+          if (cont[i] == ' ') {
+            break;
+          } else {
+            _plint_file_emb_inc(1, false);
+          }
+        }
+
+        while (cont[i] == ' ') {
           _plint_file_emb_inc(1, false);
         }
 
-        _plint_file_emb_inc(1, false);
-        while (cont[i] != '"') {
+        while (cont[i] != ' ') {
           tmp[j++] = cont[i];
           _plint_file_emb_inc(1, false);
         }
@@ -335,15 +381,39 @@ void _Plint_file_embed_if_include(PlintServer *ps, char *new_cont, char *cont,
           _plint_file_emb_inc(1, false);
         }
 
-        size_t out_offset = new_cont_len;
+        if (kind == INCLUDE) {
+          size_t out_offset = new_cont_len;
+          int new_offset = -1;
+          new_offset = _Plint_read_file_at(new_cont, out_offset, tmp);
+          if (new_offset <= 0)
+            _PlintErr(_PLT_PARSE_FAILURE, "%s", file);
+          new_cont_len = (size_t)new_offset;
 
-        int new_offset = _Plint_read_file_at(new_cont, out_offset, tmp);
-
-        if (new_offset <= 0)
-          Plint_err(_PLT_PARSE_FAILURE, "%s", file);
-
-        new_cont_len = (size_t)new_offset;
-
+        } else if (kind == IF) {
+          bool should_expand = false;
+          {
+            int found = false;
+            char n_tmp[64] = {0};
+            strcpy(n_tmp, tmp);
+            for (uint i = 0; i < ps->n_variables; i++) {
+              if (strcmp(ps->variable[i].key, tmp) == 0) {
+                should_expand = ps->variable[i].val.b;
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              _PlintErr(_PLT_VAR_NOT_FOUND, "%s", n_tmp);
+            }
+          }
+          _plint_file_emb_inc(2, false);
+          while (strcmp(_plint_upcoming, "{%") != 0) {
+            _plint_file_emb_inc(1, should_expand);
+          }
+          while (strcmp(_plint_upcoming, "%}") != 0) {
+            _plint_file_emb_inc(1, false);
+          }
+        }
         _plint_file_emb_inc(2, false);
       }
     }
@@ -355,7 +425,7 @@ void _Plint_file_embed_if_include(PlintServer *ps, char *new_cont, char *cont,
 
 // TODO: the method of getting the extension could potentially be buggy
 // if there ever was a file called "document.bak.html" or similar?
-intern_fn char *_Plint_mime_type_get(char *file_path) {
+internal char *_Plint_mime_type_get(char *file_path) {
   char *ext = strrchr(file_path, '.');
   if (!ext)
     return "text/plain";
@@ -378,9 +448,9 @@ intern_fn char *_Plint_mime_type_get(char *file_path) {
 
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
   if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
-    Plint_err(_PLT_MAX_ROUTES_EXCEED, "%d", _PLINT_MAX_ROUTES);
+    _PlintErr(_PLT_MAX_ROUTES_EXCEED, "%d", _PLINT_MAX_ROUTES);
   }
-  Plint_log("appending route: %s", pr->file_path);
+  _PlintLog("appending route: %s", pr->file_path);
 
   pr->_mime = _Plint_mime_type_get(pr->file_path);
 
@@ -389,14 +459,14 @@ bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
 
     int fs = open(pr->file_path, O_RDONLY);
     if (fs < 0) {
-      Plint_err(_PLT_PATH_NOT_FOUND, "%s", pr->file_path);
+      _PlintErr(_PLT_PATH_NOT_FOUND, "%s", pr->file_path);
     }
     close(fs);
 
     char html[_PLINT_BUF_SZ] = {0};
     char buf[_PLINT_BUF_SZ] = {0};
     _Plint_read_file_at(buf, 0, pr->file_path);
-    _Plint_file_embed_if_include(ps, html, buf, pr->file_path);
+    _Plint_file_process_template_engine(ps, html, buf, pr->file_path);
 
     strcpy(pr->_content, html);
     pr->_content_size = sizeof(html);
@@ -408,7 +478,7 @@ bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
 }
 
 // helper: PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr)
-intern_fn struct sockaddr_in
+internal struct sockaddr_in
 _PlintServer_init_socket_address(const ServerAddressIPv4 saddr) {
   in_addr_t ip[sizeof(struct in_addr)];
   int s;
@@ -425,8 +495,8 @@ _PlintServer_init_socket_address(const ServerAddressIPv4 saddr) {
       .sin_family = AF_INET, .sin_port = htons(saddr.port), {ip[0]}};
 }
 
-intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
-                                 char *file_path) {
+internal void _Plint_file_serve(PlintServer *ps, int client_socket,
+                                char *file_path) {
 
   // check if there is a html route among the routes that matches request.
   // if that is the case, handle that separately from other mime types
@@ -435,10 +505,10 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
         strstr(ps->route[i]._mime, "html")) {
 
       char response_header[_PLINT_BUF_SZ];
-      snprintf(
-          response_header, _PLINT_BUF_SZ,
-          "HTTP/1.1 200 OK\r\nContent-Length: %lld\r\nContent-Type: %s\r\n\r\n",
-          ps->route[i]._content_size, ps->route[i]._mime);
+      snprintf(response_header, _PLINT_BUF_SZ,
+               "HTTP/1.1 200 OK\r\nContent-Length: %lld\r\nContent-Type: "
+               "%s\r\n\r\n",
+               ps->route[i]._content_size, ps->route[i]._mime);
       send(client_socket, response_header, strlen(response_header), 0);
 
       size_t sent = 0;
@@ -463,7 +533,7 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
 
   int fs = open(file_path, O_RDONLY);
   if (fs < 0) {
-    Plint_log("file not found: %s", file_path);
+    _PlintLog("file not found: %s", file_path);
     // TODO: handle_route_not_found(client_socket);
     return;
   }
@@ -490,19 +560,19 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
   close(fs);
 }
 
-intern_fn void _Plint_route_handle(PlintServer *ps, int socket, char *path) {
+internal void _Plint_route_handle(PlintServer *ps, int socket, char *path) {
   for (uint i = 0; i < ps->n_routes; i++) {
     if (strcmp(path, ps->route[i].route) == 0) {
       _Plint_file_serve(ps, socket, ps->route[i].file_path);
       return;
     }
   }
-  Plint_log("route not found: %s", path);
+  _PlintLog("route not found: %s", path);
   // TODO: handle_route_not_found(client_socket);
 }
 
 #define _PLINT_HDR_FIELD_SZ 96
-intern_fn void _Plint_client_handle(PlintServer *ps, int socket) {
+internal void _Plint_client_handle(PlintServer *ps, int socket) {
 
   char method[_PLINT_HDR_FIELD_SZ] = {0}, path[_PLINT_HDR_FIELD_SZ] = {0},
        http_v[_PLINT_HDR_FIELD_SZ] = {0};
@@ -522,7 +592,7 @@ intern_fn void _Plint_client_handle(PlintServer *ps, int socket) {
     sscanf(buf, "%s %s %s", method, path, http_v);
   }
 
-  Plint_log("%s %s", method, path);
+  _PlintLog("%s %s", method, path);
 
   if (strcmp(http_v, "1.1")) {
     if (strcmp(method, "GET") == 0) {
@@ -569,7 +639,7 @@ void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr) {
 
   ps->server_fd = server_fd;
 
-  Plint_log("listening on http://%d.%d.%d.%d:%d", saddr.ip[0], saddr.ip[1],
+  _PlintLog("listening on http://%d.%d.%d.%d:%d", saddr.ip[0], saddr.ip[1],
             saddr.ip[2], saddr.ip[3], saddr.port);
 
   // start running infinitely

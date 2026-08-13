@@ -56,15 +56,15 @@
 /*
    ------------------------ PLINT HTML TEMPLATE SYSTEM ------------------------
 
-   > reserved keywords: embed, loop, item, end
+   > reserved keywords: include, loop, item, end, if
 
    ----
 
-   > embed
-   > - embed html content from a path resolved from the directory of program
+   > include
+   > - include html content from a path resolved from the directory of program
    execution, at runtime
 
-   {% embed "incl/hello.html" %}
+   {% include incl/hello.html %}
 
    ----
 
@@ -111,6 +111,9 @@
 #define PLINT_IMPLEMENTATION
 #include "../plint.h"
 
+// uncomment this to suppress internal log messages
+// #define PLINT_NO_LOG
+
 void setup_routes(PlintServer *ps);
 void setup_variables(PlintServer *ps);
 
@@ -129,6 +132,18 @@ int main(void) {
 }
 
 void setup_variables(PlintServer *ps) {
+
+    PlintServer_append_variable(ps, &(PlintVariable){.key = "show_contact_in_nav",
+            .val_k = PVK_BOOL,
+            .val.b = true});
+
+    PlintServer_append_variable(
+            ps, &(PlintVariable){.key = "footer", .val_k = PVK_BOOL, .val.b = true});
+
+    PlintServer_append_variable(
+            ps, &(PlintVariable){.key = "tagline",
+            .val_k = PVK_STR,
+            .val.s = "Recreational programmer"});
     PlintServer_append_variable(
             ps, &(PlintVariable){
             .key = "me", .val_k = PVK_STR, .val.s = "Simon Danielsson"});

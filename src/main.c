@@ -134,19 +134,19 @@ int main(void) {
 void setup_variables(PlintServer *ps) {
 
     PlintServer_append_variable(ps, &(PlintVariable){.key = "show_contact_in_nav",
-            .val_k = PVK_BOOL,
+            .val_k = BOOL,
             .val.b = true});
 
     PlintServer_append_variable(
-            ps, &(PlintVariable){.key = "footer", .val_k = PVK_BOOL, .val.b = true});
+            ps, &(PlintVariable){.key = "show_footer", .val_k = BOOL, .val.b = true});
 
     PlintServer_append_variable(
             ps, &(PlintVariable){.key = "tagline",
-            .val_k = PVK_STR,
-            .val.s = "Recreational programmer"});
+            .val_k = STR,
+            .val.s = "A complete fucking idiot!"});
     PlintServer_append_variable(
-            ps, &(PlintVariable){
-            .key = "me", .val_k = PVK_STR, .val.s = "Simon Danielsson"});
+            ps,
+            &(PlintVariable){.key = "me", .val_k = STR, .val.s = "Simon Danielsson"});
 }
 
 #define ROOT_DIR "files/"

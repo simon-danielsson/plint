@@ -83,13 +83,13 @@ typedef struct {
 } PlintRoute;
 
 enum PlintVariableKind {
-  PVK_STR,
-  PVK_INT,
-  PVK_BOOL,
-  PVK_FLOAT,
-  PVK_STR_ARRAY,
-  PVK_INT_ARRAY,
-  PVK_FLOAT_ARRAY,
+  STR,
+  INT,
+  BOOL,
+  FLOAT,
+  STR_ARRAY,
+  INT_ARRAY,
+  FLOAT_ARRAY,
 };
 
 typedef struct {
@@ -97,7 +97,7 @@ typedef struct {
   enum PlintVariableKind val_k;
   union {
     char *s;            // DONE
-    bool b;             // TODO: add branch to _Plint_embed_variable_at();
+    bool b;             // DONE
     int i;              // TODO: add branch to _Plint_embed_variable_at();
     float f;            // TODO: add branch to _Plint_embed_variable_at();
     char *s_array[128]; // TODO: add branch to _Plint_embed_variable_at();
@@ -338,8 +338,10 @@ internal void _Plint_file_process_template_engine(PlintServer *ps,
       }
 
       // include, if
-      _PlintTemplKind kind = INCLUDE;
       if (strcmp(_plint_upcoming, "{%") == 0) {
+        _PlintTemplKind kind = INCLUDE;
+        bool reverse_if = false; // i.e prefix '!' in html
+
         memset(tmp, 0, _plint_tmp_sz);
 #undef _plint_tmp_sz
         int j = 0;
@@ -360,8 +362,7 @@ internal void _Plint_file_process_template_engine(PlintServer *ps,
               kind = IF;
               kind_set = !kind_set;
             }
-          }
-          if (cont[i] == ' ') {
+          } else if (cont[i] == ' ') {
             break;
           } else {
             _plint_file_emb_inc(1, false);
@@ -373,7 +374,10 @@ internal void _Plint_file_process_template_engine(PlintServer *ps,
         }
 
         while (cont[i] != ' ') {
-          tmp[j++] = cont[i];
+          if (cont[i] == '!')
+            reverse_if = true;
+          else
+            tmp[j++] = cont[i];
           _plint_file_emb_inc(1, false);
         }
 
@@ -398,6 +402,7 @@ internal void _Plint_file_process_template_engine(PlintServer *ps,
             for (uint i = 0; i < ps->n_variables; i++) {
               if (strcmp(ps->variable[i].key, tmp) == 0) {
                 should_expand = ps->variable[i].val.b;
+                should_expand = reverse_if ? !should_expand : should_expand;
                 found = true;
                 break;
               }

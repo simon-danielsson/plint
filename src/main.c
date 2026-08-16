@@ -16,9 +16,9 @@ int main(void) {
     setup_variables(&ps);
     setup_routes(&ps);
 
-    ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
+    ServerAddressIPv4 server_addir = {.ip = {127, 0, 0, 1}, .port = 6969};
 
-    PlintServer_start(&ps, server_addr);
+    PlintServer_start(&ps, server_addir);
 
     return 0;
 }
@@ -35,14 +35,19 @@ void setup_variables(PlintServer *ps) {
     PlintServer_append_variable(
             ps, &(PlintVariable){.key = "tagline",
             .val_k = STR,
-            .val.s = "A complete fucking idiot!"});
+            .val.s = "Recreational programmer"});
+
     PlintServer_append_variable(
             ps,
             &(PlintVariable){.key = "me", .val_k = STR, .val.s = "Simon Danielsson"});
 }
 
 #define ROOT_DIR "files/"
+
 void setup_routes(PlintServer *ps) {
+
+    PlintServer_append_route_many(ps, ROOT_DIR "images", ".jpg");
+
     PlintServer_append_route(
             ps, &(PlintRoute){.route = "/", .file_path = ROOT_DIR "index.html"});
 

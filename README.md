@@ -36,9 +36,9 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 |Basic HTTP IPv4 support |100%|
 |Serving of static files |100%|
 |Pragmatic error messages | 100% | 
+|Bulk routing | 100% | 
 |Rudimentary HTML template engine | 20% |
 |User 404 route (i.e fallback page) | 0% |
-|Bulk asset directory routing | 0% | 
 |Asset caching| 0% | 
 |POST request handling | 0% | 
 
@@ -80,21 +80,38 @@ int main(void) {
     setup_variables(&ps);
     setup_routes(&ps);
 
-    ServerAddressIPv4 server_addr = {.ip = {127, 0, 0, 1}, .port = 6969};
+    ServerAddressIPv4 server_addir = {.ip = {127, 0, 0, 1}, .port = 6969};
 
-    PlintServer_start(&ps, server_addr);
+    PlintServer_start(&ps, server_addir);
 
     return 0;
 }
 
 void setup_variables(PlintServer *ps) {
+
+    PlintServer_append_variable(ps, &(PlintVariable){.key = "show_contact_in_nav",
+            .val_k = BOOL,
+            .val.b = true});
+
     PlintServer_append_variable(
-            ps, &(PlintVariable){
-            .key = "me", .val_k = PVK_STR, .val.s = "Simon Danielsson"});
+            ps, &(PlintVariable){.key = "show_footer", .val_k = BOOL, .val.b = true});
+
+    PlintServer_append_variable(
+            ps, &(PlintVariable){.key = "tagline",
+            .val_k = STR,
+            .val.s = "Recreational programmer"});
+
+    PlintServer_append_variable(
+            ps,
+            &(PlintVariable){.key = "me", .val_k = STR, .val.s = "Simon Danielsson"});
 }
 
 #define ROOT_DIR "files/"
+
 void setup_routes(PlintServer *ps) {
+
+    PlintServer_append_route_many(ps, ROOT_DIR "images", ".jpg");
+
     PlintServer_append_route(
             ps, &(PlintRoute){.route = "/", .file_path = ROOT_DIR "index.html"});
 

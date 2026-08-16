@@ -45,6 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <math.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -185,6 +186,8 @@ typedef enum {
   } while (0)
 
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr);
+bool PlintServer_append_route_many(PlintServer *ps, char *parent_path,
+                                   char *ext);
 void PlintServer_append_variable(PlintServer *ps, PlintVariable *pv);
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
@@ -451,16 +454,71 @@ internal char *_Plint_mime_type_get(char *file_path) {
   return "text/plain";
 }
 
+bool PlintServer_append_route_many(PlintServer *ps, char *parent_path,
+                                   char *ext) {
+
+  struct dirent *de;
+
+  const size_t found_capacity = 128;
+  char *found[found_capacity];
+  size_t found_count = 0;
+
+  DIR *dir = opendir(parent_path);
+
+  if (!dir) {
+    printf("Could not open current directory");
+    return false;
+  }
+
+  while ((de = readdir(dir)) != NULL) {
+    if (!ext) {
+      found[found_count++] = strdup(de->d_name);
+    } else if (strstr(de->d_name, ext)) {
+      found[found_count++] = strdup(de->d_name);
+    }
+  }
+
+  for (size_t i = 0; i < found_count; i++) {
+    size_t parent_strlen = strlen(parent_path);
+    char tmp_full_path[128] = {0};
+
+    snprintf(tmp_full_path, 128, "%s/%s", parent_path, found[i]);
+    char tmp_route[128];
+    snprintf(tmp_route, 128, "/%s", found[i]);
+
+    PlintServer_append_route(
+        ps, &(PlintRoute){.route = tmp_route, .file_path = tmp_full_path});
+  }
+
+  // TODO: the paths found in this function can't be freed here, and so I have
+  // chosen to not free them at all. Sure, it leaks memory but it will do for
+  // now
+  // if (found_count != 0) {
+  //   for (size_t i = 0; i < found_count; i++) {
+  //     free(found[i]);
+  //   }
+  // }
+
+  closedir(dir);
+
+  return true;
+}
+
 bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
   if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
     _PlintErr(_PLT_MAX_ROUTES_EXCEED, "%d", _PLINT_MAX_ROUTES);
   }
-  _PlintLog("appending route: %s", pr->file_path);
+  _PlintLog("appending route '%s' with path '%s'", pr->route, pr->file_path);
 
-  pr->_mime = _Plint_mime_type_get(pr->file_path);
+  char *route_copy = strdup(pr->route);
+  char *file_path_copy = strdup(pr->file_path);
+
+  ps->route[ps->n_routes].route = route_copy;
+  ps->route[ps->n_routes].file_path = file_path_copy;
+  ps->route[ps->n_routes]._mime = _Plint_mime_type_get(file_path_copy);
 
   // process html template
-  if (strstr(pr->_mime, "html")) {
+  if (strstr(ps->route[ps->n_routes]._mime, "html")) {
 
     int fs = open(pr->file_path, O_RDONLY);
     if (fs < 0) {
@@ -473,11 +531,11 @@ bool PlintServer_append_route(PlintServer *ps, PlintRoute *pr) {
     _Plint_read_file_at(buf, 0, pr->file_path);
     _Plint_file_process_template_engine(ps, html, buf, pr->file_path);
 
-    strcpy(pr->_content, html);
-    pr->_content_size = sizeof(html);
+    strcpy(ps->route[ps->n_routes]._content, html);
+    ps->route[ps->n_routes]._content_size = (off_t)strlen(html);
+    // strcpy(pr->_content, strdup(html));
+    // pr->_content_size = sizeof(html);
   }
-
-  ps->route[ps->n_routes] = *pr;
   ps->n_routes++;
   return true;
 }

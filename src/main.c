@@ -3,17 +3,14 @@
 #define PLINT_IMPLEMENTATION
 #include "../plint.h"
 
-// uncomment this to suppress internal log messages
-// #define PLINT_NO_LOG
-
 void setup_routes(PlintServer *ps);
-void setup_variables(PlintServer *ps);
+void setup_variables(void);
 
 int main(void) {
 
     PlintServer ps = {0};
 
-    setup_variables(&ps);
+    setup_variables();
     setup_routes(&ps);
 
     ServerAddressIPv4 server_addir = {.ip = {127, 0, 0, 1}, .port = 6969};
@@ -23,39 +20,37 @@ int main(void) {
     return 0;
 }
 
-void setup_variables(PlintServer *ps) {
+void setup_variables(void) {
+    static PlintVariable show_contact_in_nav = {
+        .key = "show_contact_in_nav", .kind = VAR_INT, .val.i = true};
 
-    PlintServer_append_variable(ps, &(PlintVariable){.key = "show_contact_in_nav",
-            .val_k = BOOL,
-            .val.b = true});
+    static PlintVariable show_footer = {
+        .key = "show_footer", .kind = VAR_INT, .val.i = true};
 
-    PlintServer_append_variable(
-            ps, &(PlintVariable){.key = "show_footer", .val_k = BOOL, .val.b = true});
+    static PlintVariable tagline = {
+        .key = "tagline", .kind = VAR_STR, .val.s = "Recreational programmer"};
 
-    PlintServer_append_variable(
-            ps, &(PlintVariable){.key = "tagline",
-            .val_k = STR,
-            .val.s = "Recreational programmer"});
+    static PlintVariable me = {
+        .key = "me", .kind = VAR_STR, .val.s = "Simon Danielsson"};
 
-    PlintServer_append_variable(
-            ps,
-            &(PlintVariable){.key = "me", .val_k = STR, .val.s = "Simon Danielsson"});
+    Plint_append_variable(&show_contact_in_nav);
+    Plint_append_variable(&show_footer);
+    Plint_append_variable(&tagline);
+    Plint_append_variable(&me);
 }
 
 #define ROOT_DIR "files/"
 
 void setup_routes(PlintServer *ps) {
 
-    PlintServer_append_route_many(ps, ROOT_DIR "images", ".jpg");
+    Plint_append_route_many(ps, ROOT_DIR "images", ".jpg");
 
-    PlintServer_append_route(
+    Plint_append_route(
             ps, &(PlintRoute){.route = "/", .file_path = ROOT_DIR "index.html"});
 
-    PlintServer_append_route(
-            ps, &(PlintRoute){.route = "/projects",
+    Plint_append_route(ps, &(PlintRoute){.route = "/projects",
             .file_path = ROOT_DIR "projects.html"});
 
-    PlintServer_append_route(ps,
-            &(PlintRoute){.route = "/favicon.ico",
+    Plint_append_route(ps, &(PlintRoute){.route = "/favicon.ico",
             .file_path = ROOT_DIR "white.ico"});
 }

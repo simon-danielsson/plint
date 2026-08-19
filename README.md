@@ -30,18 +30,15 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
   
 ### Features
     
-
-| Feature | Status |
-|------|-------|
-|Basic HTTP IPv4 support |100%|
-|Serving of static files |100%|
-|Pragmatic error messages | 100% | 
-|Bulk routing | 100% | 
-|Rudimentary HTML template engine | 20% |
-|User 404 route (i.e fallback page) | 0% |
-|Asset caching| 0% | 
-|POST request handling | 0% | 
-
+- HTML template engine
+- Serving of static files
+- Easy-to-understand error messages
+- Bulk asset routing
+  
+### Planned features
+  
+- POST request handling
+- Customizable 404 page (fallback route)
   
 ### Requirements
 - C99 or newer
@@ -52,7 +49,7 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 
 ## Install
   
-Download (or copy-paste) [plint.h](./plint.h) into your codebase and include it like this:
+Simply clone or copy-paste [plint.h](./plint.h) into your codebase and include it like so:
   
 ``` c
 #define PLINT_IMPLEMENTATION
@@ -64,6 +61,8 @@ Download (or copy-paste) [plint.h](./plint.h) into your codebase and include it 
   
 ## Usage
    
+See [USAGE.md](./USAGE.md) for a slightly more in-depth walkthrough of Plint.
+   
 ### Simple example
     
 ``` c
@@ -71,13 +70,13 @@ Download (or copy-paste) [plint.h](./plint.h) into your codebase and include it 
 #include "../plint.h"
 
 void setup_routes(PlintServer *ps);
-void setup_variables(PlintServer *ps);
+void setup_variables(void);
 
 int main(void) {
 
     PlintServer ps = {0};
 
-    setup_variables(&ps);
+    setup_variables();
     setup_routes(&ps);
 
     ServerAddressIPv4 server_addir = {.ip = {127, 0, 0, 1}, .port = 6969};
@@ -87,40 +86,38 @@ int main(void) {
     return 0;
 }
 
-void setup_variables(PlintServer *ps) {
+void setup_variables(void) {
+    static PlintVariable show_contact_in_nav = {
+        .key = "show_contact_in_nav", .kind = VAR_INT, .val.i = true};
 
-    PlintServer_append_variable(ps, &(PlintVariable){.key = "show_contact_in_nav",
-            .val_k = BOOL,
-            .val.b = true});
+    static PlintVariable show_footer = {
+        .key = "show_footer", .kind = VAR_INT, .val.i = true};
 
-    PlintServer_append_variable(
-            ps, &(PlintVariable){.key = "show_footer", .val_k = BOOL, .val.b = true});
+    static PlintVariable tagline = {
+        .key = "tagline", .kind = VAR_STR, .val.s = "Recreational programmer"};
 
-    PlintServer_append_variable(
-            ps, &(PlintVariable){.key = "tagline",
-            .val_k = STR,
-            .val.s = "Recreational programmer"});
+    static PlintVariable me = {
+        .key = "me", .kind = VAR_STR, .val.s = "Simon Danielsson"};
 
-    PlintServer_append_variable(
-            ps,
-            &(PlintVariable){.key = "me", .val_k = STR, .val.s = "Simon Danielsson"});
+    Plint_append_variable(&show_contact_in_nav);
+    Plint_append_variable(&show_footer);
+    Plint_append_variable(&tagline);
+    Plint_append_variable(&me);
 }
 
 #define ROOT_DIR "files/"
 
 void setup_routes(PlintServer *ps) {
 
-    PlintServer_append_route_many(ps, ROOT_DIR "images", ".jpg");
+    Plint_append_route_many(ps, ROOT_DIR "images", ".jpg");
 
-    PlintServer_append_route(
+    Plint_append_route(
             ps, &(PlintRoute){.route = "/", .file_path = ROOT_DIR "index.html"});
 
-    PlintServer_append_route(
-            ps, &(PlintRoute){.route = "/projects",
+    Plint_append_route(ps, &(PlintRoute){.route = "/projects",
             .file_path = ROOT_DIR "projects.html"});
 
-    PlintServer_append_route(ps,
-            &(PlintRoute){.route = "/favicon.ico",
+    Plint_append_route(ps, &(PlintRoute){.route = "/favicon.ico",
             .file_path = ROOT_DIR "white.ico"});
 }
 ```
@@ -140,6 +137,7 @@ might find them useful as learning resources.
 - https://github.com/KDesp73/webc
 - https://www.tutorialspoint.com/http/http_api_design_considerations.htm
 - https://en.wikibooks.org/wiki/C_programming/Networking_in_UNIX
+- https://en.cppreference.com/c/language/compound_literal
 - https://github.com/rexim/tore/
 - https://github.com/pallets/jinja/
 - https://github.com/sqlalchemy/mako

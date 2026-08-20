@@ -64,7 +64,7 @@
 
 ``` html
    {% if !show_blog_section %}
-      <div>My blog!</div>
+      <div>No blog for you!</div>
    {% endif %}
 ```
   

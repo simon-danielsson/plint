@@ -94,6 +94,9 @@
    <h3>Testimonials</h3>
       {% for card in testimonials %}
       <div>
+          {% for div in testimonial_div %}
+            {{ div }}
+          {% endfor %}
          {{ card }}
       </div>
       {% endfor %}

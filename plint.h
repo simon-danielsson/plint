@@ -1,4 +1,3 @@
-
 /*
 
 -------------------------------------------------------------------------------
@@ -658,6 +657,8 @@ intern_fn char *_Plint_mime_type_get(char *file_path) {
     return "text/plain";
   if (strcmp(ext, ".html") == 0)
     return "text/html";
+  if (strcmp(ext, ".ico") == 0)
+    return "image/x-icon";
   if (strcmp(ext, ".css") == 0)
     return "text/css";
   if (strcmp(ext, ".js") == 0)
@@ -770,7 +771,7 @@ _PlintServer_init_socket_address(const ServerAddressIPv4 saddr) {
 intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
                                  char *file_path) {
 
-  // check if there is a html route among the routes that matches request.
+  // check if there is an html route among the routes that matches request.
   // if that is the case, handle that separately from other mime types
   for (uint i = 0; i < ps->n_routes; i++) {
     if (strcmp(file_path, ps->route[i].file_path) == 0 &&
@@ -824,11 +825,39 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
   send(client_socket, response_header, strlen(response_header), 0);
 
   char file_buffer[_PLINT_BUF_SZ];
-  ssize_t bytes_read;
-  while ((bytes_read = read(fs, file_buffer, _PLINT_BUF_SZ)) > 0) {
-    send(client_socket, file_buffer, (size_t)bytes_read, 0);
-  }
+  ssize_t bytes_read, total_sent = 0;
+  _PlintLog("Content-Length: %lld, file: %s", (long long)resp_size, file_path);
+  for (;;) {
+    bytes_read = read(fs, file_buffer, _PLINT_BUF_SZ);
+    if (bytes_read < 0) {
+      if (errno == EINTR)
+        continue;
+      perror("read");
+      break;
+    }
+    if (bytes_read == 0)
+      break;
+    size_t remaining = (size_t)bytes_read;
+    char *buf_ptr = file_buffer;
+    ssize_t n;
 
+    while (remaining > 0) {
+      n = send(client_socket, buf_ptr, remaining, 0);
+      if (n < 0) {
+        if (errno == EINTR)
+          continue;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          continue; // socket temp. unavail.
+        }
+        perror("send");
+        break;
+      }
+      buf_ptr += n;
+      total_sent += n;
+      remaining -= (size_t)n;
+    }
+  }
+  _PlintLog("total bytes sent: %zu", total_sent);
   close(fs);
 }
 

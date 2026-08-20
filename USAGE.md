@@ -16,7 +16,22 @@
 * Any variables you add are appended to a global scope, and can therefore
   be accessed from anywhere in your html documents (the drawback of this
   is that name collisions and shadowing can occur if you're not careful!)
+  
+---
+  
+### Variables
+  
+#### Example
 
+``` html
+
+   <div>
+      <p>{{ my_var }}</p>
+   </div>
+```
+   
+---
+   
 ### Keyword: include
   
 * Include html content from a path resolved from the directory of program
@@ -33,18 +48,9 @@
       ...
    </body>
 ```
-
-### Variables
-  
-#### Example
-
-``` html
-
-   <div>
-      <p>{{ my_var }}</p>
-   </div>
-```
-
+   
+---
+   
 ### Keyword: if, endif
   
 #### Example 1
@@ -61,7 +67,9 @@
       <div>My blog!</div>
    {% endif %}
 ```
-
+  
+---
+   
 ### Keyword: for, endfor
 
 #### Example 1 (accessing an index of an array, like any other variable)

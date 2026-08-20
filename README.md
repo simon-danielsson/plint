@@ -61,7 +61,8 @@ Simply clone or copy-paste [plint.h](./plint.h) into your codebase and include i
   
 ## Usage
    
-See [USAGE.md](./USAGE.md) for a slightly more in-depth walkthrough of Plint.
+See [USAGE.md](./USAGE.md) for an in-depth walkthrough of Plint.
+See [/examples](./examples) to view practical examples of typical usage.
    
 ### Simple example
     

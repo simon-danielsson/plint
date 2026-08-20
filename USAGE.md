@@ -106,8 +106,14 @@
 #### Example 3b (nested loops)
 
 ``` html
-   <!-- note that this variable array 'socials' contain -->
+   <!-- Pay attention to that the 'socials' array contains -->
    <!-- variable arrays within it that can be accessed by index -->
+
+   <!-- Theoretically you should be able to create a nested for-loop
+   <!-- with an array of an array, but I have not tested for this use-case -->
+
+   <!-- Note that for applications like the following, the array ought to only 
+   <!-- contain ARRAYS and not a mix of int, str, double and array kinds -->
 
    <h3>Socials</h3>
    <div class="socials">

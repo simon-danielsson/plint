@@ -533,7 +533,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           inc_past(STMT_POST);
           var[var_len] = '\0';
 
-          printf("INCLUDE (l:%d d:%d) -- '%s'\n", line, depth, var);
+          _PlintLog("%s:%d -- including '%s'", _Plint_FILENAME, line, var);
           char include_buf[_PLINT_BUF_SZ] = {0};
           int bytes_read = _Plint_read_file_at(include_buf, 0, var);
           process_depth(include_buf, (size_t)bytes_read, 0, depth);

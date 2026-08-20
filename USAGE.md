@@ -11,7 +11,7 @@
   overflow bugs in the recursion logic - can be adjusted at your own risk).
 
 #### Variables
-* Variables are added in code via the PlintServer_append_variable() function.
+* Variables are added in code via the Plint_append_variable() function.
 
 * Any variables you add are appended to a global scope, and can therefore
   be accessed from anywhere in your html documents (the drawback of this

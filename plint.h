@@ -128,53 +128,11 @@ typedef struct {
 #define _PlintLog(...)
 #endif
 
-typedef enum {
-  _PLT_PATH_NOT_FOUND,
-  _PLT_ROUTE_NOT_FOUND,
-  _PLT_VAR_NOT_FOUND,
-  _PLT_MAX_ROUTES_EXCEED,
-  _PLT_MAX_VARS_EXCEED,
-  _PLT_FAILED_TO_OPEN,
-  _PLT_FAILED_TO_READ,
-  _PLT_BUFFER_EXCEED,
-  _PLT_PARSE_FAILURE,
-} _PlintErrKind;
-
-#define _PlintErr(ERR_KIND, ...)                                               \
+#define _PlintErr(...)                                                         \
   do {                                                                         \
-    char *msg;                                                                 \
-    switch ((ERR_KIND)) {                                                      \
-    case _PLT_VAR_NOT_FOUND:                                                   \
-      msg = "variable could not be found";                                     \
-      break;                                                                   \
-    case _PLT_MAX_ROUTES_EXCEED:                                               \
-      msg = "max routes exceeded";                                             \
-      break;                                                                   \
-    case _PLT_MAX_VARS_EXCEED:                                                 \
-      msg = "max variables exceeded";                                          \
-      break;                                                                   \
-    case _PLT_BUFFER_EXCEED:                                                   \
-      msg = "buffer exceeded";                                                 \
-      break;                                                                   \
-    case _PLT_ROUTE_NOT_FOUND:                                                 \
-      msg = "route not found";                                                 \
-      break;                                                                   \
-    case _PLT_PATH_NOT_FOUND:                                                  \
-      msg = "path not found";                                                  \
-      break;                                                                   \
-    case _PLT_FAILED_TO_OPEN:                                                  \
-      msg = "failed to open";                                                  \
-      break;                                                                   \
-    case _PLT_FAILED_TO_READ:                                                  \
-      msg = "failed to read";                                                  \
-      break;                                                                   \
-    case _PLT_PARSE_FAILURE:                                                   \
-      msg = "parse failure";                                                   \
-      break;                                                                   \
-    }                                                                          \
     char tmp[256] = {0};                                                       \
     snprintf(tmp, 256, __VA_ARGS__);                                           \
-    printf("[ERROR] %s %s \n", msg, tmp);                                      \
+    fprintf(stderr, "[ERROR] %s\n", tmp);                                      \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
@@ -188,24 +146,28 @@ void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 #ifdef PLINT_IMPLEMENTATION
 
+global_var char _Plint_FILENAME[FILENAME_MAX] = {0};
+
 // returns new offset on success (current_pos + chars read)
 intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   FILE *fp = fopen(path, "rb");
   if (!fp) {
     fclose(fp);
-    _PlintErr(_PLT_FAILED_TO_OPEN, "include %s", path);
+    _PlintErr("%s: Failed to read included file '%s'", _Plint_FILENAME, path);
   }
 
   if (offset >= _PLINT_BUF_SZ - 1) {
     fclose(fp);
-    _PlintErr(_PLT_BUFFER_EXCEED, "include %s", path);
+    _PlintErr("%s: Buffer exceeded while reading included file '%s'",
+              _Plint_FILENAME, path);
   }
 
   int c;
   while ((c = fgetc(fp)) != EOF) {
     if (offset >= _PLINT_BUF_SZ - 1) {
       fclose(fp);
-      _PlintErr(_PLT_BUFFER_EXCEED, "include %s", path);
+      _PlintErr("%s: Buffer exceeded while reading included file '%s'",
+                _Plint_FILENAME, path);
     }
     buf[offset++] = (char)c;
   }
@@ -225,15 +187,12 @@ static inline char *_plint_strdup(const char *s) {
 #define strdup _plint_strdup
 #endif
 
-global_var char _Plint_FILENAME[FILENAME_MAX] = {0};
 intern_fn void _Plint_FILENAME_update(const char *new_filename) {
   memset(_Plint_FILENAME, 0, FILENAME_MAX);
   size_t len = strlen(new_filename), i = 0;
   for (; i < strlen(new_filename); i++) {
     if (i >= FILENAME_MAX) {
-      fprintf(stderr, "[ERROR] %s -- maximum filename length %d exceeded\n",
-              new_filename, FILENAME_MAX);
-      exit(EXIT_FAILURE);
+      _PlintErr("Filename length exceeded: %s", new_filename);
     }
     _Plint_FILENAME[i] = new_filename[i];
   }
@@ -249,9 +208,9 @@ void Plint_append_variable(PlintVariable *var_to_append) {
       return;
     }
   }
-  fprintf(stderr, "[ERROR] %s -- '%s': maximum variable count %d exceeded\n",
-          _Plint_FILENAME, var_to_append->key, _Plint_VARS_MAX);
-  exit(EXIT_FAILURE);
+  _PlintErr(
+      "%s: Maximum variable count exceeded while trying to add variable '%s'",
+      _Plint_FILENAME, var_to_append->key);
 }
 
 #define MAX_DEPTH 4
@@ -267,10 +226,8 @@ intern_fn void VARIABLES_pop_last_added(void) {
   for (size_t i = 0; i < _Plint_VARS_MAX; i++) {
     if (VARIABLES[i] == NULL) {
       if (i == 0) {
-        fprintf(stderr,
-                "[ERROR] %s:%d -- tried to pop from empty variables stack\n",
-                _Plint_FILENAME, line);
-        exit(EXIT_FAILURE);
+        _PlintErr("%s:%d -- attempt to pop from empty variable stack",
+                  _Plint_FILENAME, line);
       }
       VARIABLES[i - 1] = NULL;
       return;
@@ -372,7 +329,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
         var_idx_str[var_idx_str_len + 1] = '\0';
         if (var_idx_str[0] != '\0') {
           var_idx = atoi(var_idx_str);
-          printf("var_idx: %d\n", var_idx);
+          // printf("var_idx: %d\n", var_idx);
         }
 
         bool var_was_Plint_found = false;
@@ -381,20 +338,15 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
             if (VARIABLES[i]->kind == ARRAY) {
 
               if (var_idx == -1) {
-                fprintf(stderr,
-                        "[ERROR] %s:%d -- an index for array variable '%s' is "
-                        "either not defined or malformed\n",
-                        _Plint_FILENAME, line, var);
-                exit(EXIT_FAILURE);
+                _PlintErr("%s:%d -- index for array variable '%s' is "
+                          "undefined or malformed",
+                          _Plint_FILENAME, line, var);
               }
 
               if ((size_t)var_idx >= VARIABLES[i]->arr_size) {
-                fprintf(stderr,
-                        "[ERROR] %s:%d -- specified index for array variable "
-                        "'%s' is "
-                        "larger than array size\n",
-                        _Plint_FILENAME, line, var);
-                exit(EXIT_FAILURE);
+                _PlintErr("%s:%d -- specified index for array variable "
+                          "'%s' is larger than array size",
+                          _Plint_FILENAME, line, var);
               }
 
               PlintVariableKind var_kind = VARIABLES[i]->val.arr[var_idx].kind;
@@ -419,11 +371,9 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
               } else {
                 printf("array var kind string\n");
                 if (VARIABLES[i]->val.arr[var_idx].val.s == NULL) {
-                  fprintf(stderr,
-                          "[ERROR] %s:%d -- array variable "
-                          "'%s' at index '%d' contains a null value\n",
-                          _Plint_FILENAME, line, var, var_idx);
-                  exit(EXIT_FAILURE);
+                  _PlintErr("%s:%d -- array variable "
+                            "'%s' at index '%d' contains a null value",
+                            _Plint_FILENAME, line, var, var_idx);
                 }
                 for (size_t j = 0;
                      j < strlen(VARIABLES[i]->val.arr[var_idx].val.s); j++) {
@@ -459,9 +409,8 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
         }
 
         if (!var_was_Plint_found) {
-          fprintf(stderr, "[ERROR] %s:%d -- variable '%s' is not defined\n",
-                  _Plint_FILENAME, line, var);
-          exit(EXIT_FAILURE);
+          _PlintErr("%s:%d -- variable '%s' is not defined", _Plint_FILENAME,
+                    line, var);
         }
 
         // printf("VAR (l:%d d:%d) -- '%s'\n", line, depth, var);
@@ -472,11 +421,9 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
         }
 
         if (!found(VAR_POST)) {
-          fprintf(stderr,
-                  "[ERROR] %s:%d -- variable '%s' was not "
-                  "escaped properly (missing or malformed '}}')\n",
-                  _Plint_FILENAME, line, var);
-          exit(EXIT_FAILURE);
+          _PlintErr("%s:%d -- variable '%s' was not "
+                    "escaped properly (missing or malformed '}}')",
+                    _Plint_FILENAME, line, var);
         }
         inc_past(VAR_POST);
         break;
@@ -519,9 +466,8 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           }
 
           if (var_is_true < 0) {
-            fprintf(stderr, "[ERROR] %s:%d -- boolean '%s' is not defined\n",
-                    _Plint_FILENAME, line, var);
-            exit(EXIT_FAILURE);
+            _PlintErr("%s:%d -- boolean '%s' is not defined", _Plint_FILENAME,
+                      line, var);
           }
 
           var_is_true = invert ? !var_is_true : var_is_true;
@@ -674,11 +620,8 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           }
 
           if (array_undefined) {
-            fprintf(stderr,
-                    "[ERROR] %s:%d -- array '%s' is either undefined or "
-                    "malformed\n",
-                    _Plint_FILENAME, line, array_var);
-            exit(EXIT_FAILURE);
+            _PlintErr("%s:%d -- array '%s' is undefined or malformed",
+                      _Plint_FILENAME, line, array_var);
           }
 
           break;
@@ -740,7 +683,7 @@ bool Plint_append_route_many(PlintServer *ps, char *parent_path, char *ext) {
   DIR *dir = opendir(parent_path);
 
   if (!dir) {
-    _PlintErr(_PLT_FAILED_TO_OPEN, "route '%s'", parent_path);
+    _PlintErr("Failed to open route '%s'", parent_path);
   }
 
   while ((de = readdir(dir)) != NULL) {
@@ -751,13 +694,10 @@ bool Plint_append_route_many(PlintServer *ps, char *parent_path, char *ext) {
     }
   }
 
-  size_t parent_strlen;
   char tmp_full_path[128];
   char tmp_route[128];
 
   for (size_t i = 0; i < found_count; i++) {
-    parent_strlen = strlen(parent_path);
-
     memset(tmp_full_path, 0, 128);
     snprintf(tmp_full_path, 128, "%s/%s", parent_path, found[i]);
 
@@ -775,7 +715,10 @@ bool Plint_append_route_many(PlintServer *ps, char *parent_path, char *ext) {
 
 bool Plint_append_route(PlintServer *ps, PlintRoute *pr) {
   if (ps->n_routes + 1 > _PLINT_MAX_ROUTES) {
-    _PlintErr(_PLT_MAX_ROUTES_EXCEED, "%d", _PLINT_MAX_ROUTES);
+    _PlintErr("Number of routes exceeded: %d", _PLINT_MAX_ROUTES);
+  }
+  if (!pr->file_path) {
+    _PlintErr("Path not found: the path of route '%s' is null", pr->route);
   }
   _PlintLog("appending route '%s' with path '%s'", pr->route, pr->file_path);
 
@@ -791,7 +734,7 @@ bool Plint_append_route(PlintServer *ps, PlintRoute *pr) {
 
     int fs = open(pr->file_path, O_RDONLY);
     if (fs < 0) {
-      _PlintErr(_PLT_PATH_NOT_FOUND, "%s", pr->file_path);
+      _PlintErr("Path not found: %s", pr->file_path);
     }
     close(fs);
 

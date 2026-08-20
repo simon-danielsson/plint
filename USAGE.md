@@ -19,8 +19,6 @@
 
 ### Keyword: include
   
-#### Info
-    
 * Include html content from a path resolved from the directory of program
   execution.
 * Note that filepaths should not be surrounded by double/single quotes!

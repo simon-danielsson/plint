@@ -4,8 +4,9 @@
 int main(void) {
     PlintServer ps = {0};
 
-    Plint_append_variable(&(PlintVariable){
-            .kind = VAR_INT, .key = "show_description", .val.i = false});
+    static PlintVariable show_description = {
+        .kind = VAR_INT, .key = "show_description", .val.i = true};
+    Plint_append_variable(&show_description);
 
     Plint_append_route(&ps,
             &(PlintRoute){.route = "/", .file_path = "index.html"});

@@ -113,13 +113,15 @@
 
 ``` html
    <!-- Pay attention to that the 'socials' array contains -->
-   <!-- variable arrays within it that can be accessed by index -->
+   <!-- variable arrays within it that can be accessed by index. -->
 
-   <!-- Theoretically you should be able to create a nested for-loop
-   <!-- with an array of an array, but I have not tested for this use-case -->
+   <!-- Theoretically you should be able to create a nested for-loop -->
+   <!-- with an array of an array, but I have not bothered testing this -->
+   <!-- since it's a stupid idea. -->
 
-   <!-- Note that for applications like the following, the array ought to only 
-   <!-- contain ARRAYS and not a mix of int, str, double and array kinds -->
+   <!-- Note that for use-cases like the following example, the iterated 
+   <!-- array ought to only contain ARRAYS, not mix of different 
+   <!-- variable kinds! -->
 
    <h3>Socials</h3>
    <div class="socials">

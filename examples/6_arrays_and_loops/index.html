@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plint</title>
+    <style>
+      body,
+      html {
+        background-color: #202021;
+        color: #fff;
+      }
+      ol > * {
+        font-size: 1.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Hello from Plint!</h1>
+    <h2>These are some of my favorite foods:</h2>
+    <ol>
+      {% for food in favorite_foods %}
+      <li>{{ food }}</li>
+      {% endfor %}
+    </ol>
+  </body>
+</html>

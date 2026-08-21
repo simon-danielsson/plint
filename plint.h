@@ -826,7 +826,7 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
 
   char file_buffer[_PLINT_BUF_SZ];
   ssize_t bytes_read, total_sent = 0;
-  _PlintLog("Content-Length: %lld, file: %s", (long long)resp_size, file_path);
+  _PlintLog("Content length: %lld, file: %s", (long long)resp_size, file_path);
   for (;;) {
     bytes_read = read(fs, file_buffer, _PLINT_BUF_SZ);
     if (bytes_read < 0) {
@@ -857,7 +857,7 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
       remaining -= (size_t)n;
     }
   }
-  _PlintLog("total bytes sent: %zu", total_sent);
+  _PlintLog("Total bytes sent: %zu", total_sent);
   close(fs);
 }
 

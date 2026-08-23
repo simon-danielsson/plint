@@ -3,7 +3,7 @@
 ### General
    
 #### Reserved keywords
-* include, for, in, if, endif, endfor
+* include, for, in, if, endif, endfor, not
 
 #### Regarding nesting
 * Nested 'if' and 'for' statements are supported, with a maximum nesting 
@@ -51,7 +51,7 @@
    
 ---
    
-### Keyword: if, endif
+### Keyword: if, endif, not
   
 #### Example 1
 ``` html
@@ -60,10 +60,10 @@
    {% endif %}
 ```
 
-#### Example 2 (+ negation operator)
+#### Example 2 (with 'not' keyword)
 
 ``` html
-   {% if !show_blog_section %}
+   {% if not show_blog_section %}
       <div>No blog for you!</div>
    {% endif %}
 ```

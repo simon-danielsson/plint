@@ -147,6 +147,24 @@ void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr);
 
 global_var char _Plint_FILENAME[FILENAME_MAX] = {0};
 
+void trim_str(char *str) {
+  char *start = str;
+  while (*start && isspace((unsigned char)*start)) {
+    start++;
+  }
+  if (*start == '\0') {
+    str[0] = '\0';
+    return;
+  }
+  char *end = start + strlen(start) - 1;
+  while (end > start && isspace((unsigned char)*end)) {
+    end--;
+  }
+  size_t len = (size_t)(end - (long)start) + 1;
+  memmove(str, start, len);
+  str[len] = '\0';
+}
+
 // returns new offset on success (current_pos + chars read)
 intern_fn int _Plint_read_file_at(char *buf, size_t offset, const char *path) {
   FILE *fp = fopen(path, "rb");
@@ -271,7 +289,7 @@ bool _Plint_found(const char *cont, uint curr_idx, char *found) {
 #define VAR_PRE "{{"
 #define VAR_POST "}}"
 #define KEYWORD_IF "if"
-#define KEYWORD_NEG_OP "!"
+#define KEYWORD_NOT "not"
 #define KEYWORD_INCLUDE "include"
 #define KEYWORD_ENDIF "endif"
 #define KEYWORD_ENDFOR "endfor"
@@ -351,7 +369,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
               PlintVariableKind var_kind = VARIABLES[i]->val.arr[var_idx].kind;
 
               if (var_kind == VAR_INT) {
-                printf("array var kind int\n");
+                // printf("array var kind int\n");
                 char tmp[10];
                 snprintf(tmp, 10, "%d", VARIABLES[i]->val.arr[var_idx].val.i);
                 tmp[9] = '\0';
@@ -360,7 +378,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
                 }
 
               } else if (var_kind == VAR_DBL) {
-                printf("array var kind double\n");
+                // printf("array var kind double\n");
                 char tmp[10 + 1];
                 snprintf(tmp, 10, "%.2f", VARIABLES[i]->val.arr[var_idx].val.d);
                 tmp[10] = '\0';
@@ -368,7 +386,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
                   result[result_idx++] = tmp[j];
                 }
               } else {
-                printf("array var kind string\n");
+                // printf("array var kind string\n");
                 if (VARIABLES[i]->val.arr[var_idx].val.s == NULL) {
                   _PlintErr("%s:%d -- array variable "
                             "'%s' at index '%d' contains a null value",
@@ -442,12 +460,13 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           char var[128];
           size_t len = 0;
           bool invert = false;
-          while (!found(STMT_POST) && !isspace(cont[pos])) {
-            if (cont[pos] == '!') {
+          while (!found(STMT_POST)) {
+            if (found(KEYWORD_NOT)) {
               invert = true;
-              inc(1);
+              inc_past(KEYWORD_NOT);
+            } else {
+              var[len++] = cont[pos];
             }
-            var[len++] = cont[pos];
             inc(1);
           }
           while (isspace(cont[pos]))
@@ -455,6 +474,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           inc_past(STMT_POST);
 
           var[len] = '\0';
+          trim_str(var);
           int var_is_true = -1;
 
           for (size_t i = 0; VARIABLES[i] != NULL; i++) {

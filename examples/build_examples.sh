@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
 
-c_files=()
+declare -A dirs=()
 
 while IFS= read -rd '' file; do
-    c_files+=("$file")
-done < <(find . -type f -name '*.c*' -print0)
+    dirs["${file%/*}"]=1
+done < <(find . -type f -name '*.c' -print0)
 
-compile() {
-    local file="$1"
-    local name="${file##*/}"
-    name="${name%.*}"
-    local dir="${file%/*}"
-    command rm "$dir/$name"
-    cc -o "$dir/$name" "$file"
-}
+for dir in "${!dirs[@]}"; do
+    mapfile -d '' -O0 c_files < <(find "$dir" -maxdepth 1 -type f -name '*.c' -print0 | sort -z)
 
-for file in "${c_files[@]}"; do
-    compile "$file"
+    name="${dir##*/}"
+
+    echo "Compiling $dir -> $name"
+    cc -o "$dir/$name" "${c_files[@]}"
 done
-
-

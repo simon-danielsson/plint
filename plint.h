@@ -244,13 +244,12 @@ void Plint_append_variable(PlintVariable *var_to_append) {
       _Plint_FILENAME, var_to_append->key);
 }
 
-#define MAX_DEPTH 4
-global_var char result[_PLINT_BUF_SZ] = {0};
-global_var uint result_idx, line = 1;
+global_var char _plint_html_result[_PLINT_BUF_SZ] = {0};
+global_var uint _plint_html_result_idx, _plint_html_line = 1;
 
-void _template_engine_process_html_RESET(void) {
-  memset(result, 0, _PLINT_BUF_SZ);
-  result_idx = 0;
+void __plint_template_engine_process_html_RESET(void) {
+  memset(_plint_html_result, 0, _PLINT_BUF_SZ);
+  _plint_html_result_idx = 0;
 }
 
 intern_fn void VARIABLES_pop_last_added(void) {
@@ -258,7 +257,7 @@ intern_fn void VARIABLES_pop_last_added(void) {
     if (VARIABLES[i] == NULL) {
       if (i == 0) {
         _PlintErr("%s:%d -- attempt to pop from empty variable stack",
-                  _Plint_FILENAME, line);
+                  _Plint_FILENAME, _plint_html_line);
       }
       VARIABLES[i - 1] = NULL;
       return;
@@ -359,8 +358,6 @@ bool _Plint_is_probably_a_link(char *md_content, int idx, int md_len) {
 
 // returns heap-allocated html_content
 char *_Plint_markdown_to_html(char *md_content) {
-  bool got_title = false, got_date = false, got_tags = false, got_desc = false;
-
 #define _plint_md_into_tmp(to_insert)                                          \
   do {                                                                         \
     insert_len = strlen(to_insert);                                            \
@@ -511,7 +508,7 @@ char *_Plint_markdown_to_html(char *md_content) {
         _plint_md_increment(3);
       }
 
-      // skip blank lines
+      // skip blank _plint_html_lines
       {
         bool blnk_ln = true;
         for (int j = 0;; j++) {
@@ -650,7 +647,7 @@ bool _Plint_found(const char *cont, uint curr_idx, char *found) {
     if (pos < cont_len) {                                                      \
       pos += (n);                                                              \
       if (pos < cont_len && cont[pos] == '\n')                                 \
-        line++;                                                                \
+        _plint_html_line++;                                                    \
     } else {                                                                   \
       break;                                                                   \
     }                                                                          \
@@ -680,17 +677,18 @@ bool _Plint_found(const char *cont, uint curr_idx, char *found) {
 #define HTML_CODE_CLOSE "</code>"
 
 // recursive
-uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
+uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
+                               uint depth) {
   while (pos < cont_len) {
 
     if (found(HTML_CODE_OPEN)) {
       while (!found(HTML_CODE_CLOSE)) {
-        result[result_idx++] = cont[pos];
+        _plint_html_result[_plint_html_result_idx++] = cont[pos];
         inc(1);
       }
       assert(found(HTML_CODE_CLOSE) == true);
       for (size_t i = 0; i < strlen(HTML_CODE_CLOSE); i++) {
-        result[result_idx++] = cont[pos];
+        _plint_html_result[_plint_html_result_idx++] = cont[pos];
         inc(1);
       }
       // inc_past(HTML_CODE_CLOSE);
@@ -738,13 +736,13 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
               if (var_idx == -1) {
                 _PlintErr("%s:%d -- index for array variable '%s' is "
                           "undefined or malformed",
-                          _Plint_FILENAME, line, var);
+                          _Plint_FILENAME, _plint_html_line, var);
               }
 
               if ((size_t)var_idx >= VARIABLES[i]->arr_size) {
                 _PlintErr("%s:%d -- specified index for array variable "
                           "'%s' is larger than array size",
-                          _Plint_FILENAME, line, var);
+                          _Plint_FILENAME, _plint_html_line, var);
               }
 
               PlintVariableKind var_kind = VARIABLES[i]->val.arr[var_idx].kind;
@@ -755,7 +753,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
                 snprintf(tmp, 10, "%d", VARIABLES[i]->val.arr[var_idx].val.i);
                 tmp[9] = '\0';
                 for (size_t j = 0; j < strlen(tmp); j++) {
-                  result[result_idx++] = tmp[j];
+                  _plint_html_result[_plint_html_result_idx++] = tmp[j];
                 }
 
               } else if (var_kind == VAR_DBL) {
@@ -764,18 +762,18 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
                 snprintf(tmp, 10, "%.2f", VARIABLES[i]->val.arr[var_idx].val.d);
                 tmp[10] = '\0';
                 for (size_t j = 0; j < strlen(tmp); j++) {
-                  result[result_idx++] = tmp[j];
+                  _plint_html_result[_plint_html_result_idx++] = tmp[j];
                 }
               } else {
                 // printf("array var kind string\n");
                 if (VARIABLES[i]->val.arr[var_idx].val.s == NULL) {
                   _PlintErr("%s:%d -- array variable "
                             "'%s' at index '%d' contains a null value",
-                            _Plint_FILENAME, line, var, var_idx);
+                            _Plint_FILENAME, _plint_html_line, var, var_idx);
                 }
                 for (size_t j = 0;
                      j < strlen(VARIABLES[i]->val.arr[var_idx].val.s); j++) {
-                  result[result_idx++] =
+                  _plint_html_result[_plint_html_result_idx++] =
                       VARIABLES[i]->val.arr[var_idx].val.s[j];
                 }
               }
@@ -785,7 +783,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
               snprintf(tmp, 10, "%d", VARIABLES[i]->val.i);
               tmp[10] = '\0';
               for (size_t j = 0; j < strlen(tmp); j++) {
-                result[result_idx++] = tmp[j];
+                _plint_html_result[_plint_html_result_idx++] = tmp[j];
               }
 
             } else if (VARIABLES[i]->kind == VAR_DBL) {
@@ -793,12 +791,13 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
               snprintf(tmp, 10, "%.2f", VARIABLES[i]->val.d);
               tmp[10] = '\0';
               for (size_t j = 0; j < strlen(tmp); j++) {
-                result[result_idx++] = tmp[j];
+                _plint_html_result[_plint_html_result_idx++] = tmp[j];
               }
 
             } else {
               for (size_t j = 0; j < strlen(VARIABLES[i]->val.s); j++) {
-                result[result_idx++] = VARIABLES[i]->val.s[j];
+                _plint_html_result[_plint_html_result_idx++] =
+                    VARIABLES[i]->val.s[j];
               }
             }
             var_was_Plint_found = true;
@@ -808,10 +807,10 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
 
         if (!var_was_Plint_found) {
           _PlintErr("%s:%d -- variable '%s' is not defined", _Plint_FILENAME,
-                    line, var);
+                    _plint_html_line, var);
         }
 
-        // printf("VAR (l:%d d:%d) -- '%s'\n", line, depth, var);
+        // printf("VAR (l:%d d:%d) -- '%s'\n", _plint_html_line, depth, var);
         int overflow_counter = 5;
         while (!found(VAR_POST) && overflow_counter > 0) {
           inc(1);
@@ -821,7 +820,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
         if (!found(VAR_POST)) {
           _PlintErr("%s:%d -- variable '%s' was not "
                     "escaped properly (missing or malformed '}}')",
-                    _Plint_FILENAME, line, var);
+                    _Plint_FILENAME, _plint_html_line, var);
         }
         inc_past(VAR_POST);
         break;
@@ -867,12 +866,13 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
 
           if (var_is_true < 0) {
             _PlintErr("%s:%d -- boolean '%s' is not defined", _Plint_FILENAME,
-                      line, var);
+                      _plint_html_line, var);
           }
 
           var_is_true = invert ? !var_is_true : var_is_true;
 
-          // printf("IF-VAR (l:%d d:%d) -- '%s'\n", line, depth, var);
+          // printf("IF-VAR (l:%d d:%d) -- '%s'\n", _plint_html_line, depth,
+          // var);
           size_t depth_counter = 1;
           size_t scan = pos;
           size_t endif_start = 0;
@@ -898,7 +898,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           size_t body_len = endif_start - pos;
 
           if (var_is_true) {
-            pos = process_depth(&cont[pos], body_len, 0, depth + 1);
+            pos = _plint_html_process_depth(&cont[pos], body_len, 0, depth + 1);
           } else {
             pos = endif_start;
           }
@@ -933,10 +933,11 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
           inc_past(STMT_POST);
           var[var_len] = '\0';
 
-          _PlintLog("%s:%d -- including '%s'", _Plint_FILENAME, line, var);
+          _PlintLog("%s:%d -- including '%s'", _Plint_FILENAME,
+                    _plint_html_line, var);
           char include_buf[_PLINT_BUF_SZ] = {0};
           int bytes_read = _Plint_read_file_at(include_buf, 0, var);
-          process_depth(include_buf, (size_t)bytes_read, 0, depth);
+          _plint_html_process_depth(include_buf, (size_t)bytes_read, 0, depth);
 
           break;
         }
@@ -1003,7 +1004,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
                     .key = iter_var,
                     .kind = VARIABLES[i]->val.arr[j].kind,
                     .val = VARIABLES[i]->val.arr[j].val});
-                process_depth(&cont[pos], body_len, 0, depth + 1);
+                _plint_html_process_depth(&cont[pos], body_len, 0, depth + 1);
                 VARIABLES_pop_last_added();
               }
 
@@ -1021,7 +1022,7 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
 
           if (array_undefined) {
             _PlintErr("%s:%d -- array '%s' is undefined or malformed",
-                      _Plint_FILENAME, line, array_var);
+                      _Plint_FILENAME, _plint_html_line, array_var);
           }
 
           break;
@@ -1029,22 +1030,22 @@ uint process_depth(char *cont, size_t cont_len, uint pos, uint depth) {
       }
     }
 
-    result[result_idx++] = cont[pos];
+    _plint_html_result[_plint_html_result_idx++] = cont[pos];
     inc(1);
   }
   return pos;
 }
 
-void template_engine_process_html(char *cont, size_t cont_len,
-                                  char *new_filename) {
+void _plint_template_engine_process_html(char *cont, size_t cont_len,
+                                         char *new_filename) {
   _Plint_FILENAME_update(new_filename);
-  _template_engine_process_html_RESET();
+  __plint_template_engine_process_html_RESET();
 
   uint depth = 0, pos = 0;
-  process_depth(cont, cont_len, pos, depth);
+  _plint_html_process_depth(cont, cont_len, pos, depth);
 
   // printf("\n-------------\n");
-  // printf("%s", result);
+  // printf("%s", _plint_html_result);
   // printf("\n-------------\n");
 
   assert(depth == 0);
@@ -1142,10 +1143,10 @@ bool Plint_append_route(PlintServer *ps, PlintRoute *pr) {
 
     char buf[_PLINT_BUF_SZ] = {0};
     _Plint_read_file_at(buf, 0, pr->file_path);
-    template_engine_process_html(buf, strlen(buf), pr->file_path);
+    _plint_template_engine_process_html(buf, strlen(buf), pr->file_path);
 
-    strcpy(ps->route[ps->n_routes]._content, result);
-    ps->route[ps->n_routes]._content_size = (off_t)strlen(result);
+    strcpy(ps->route[ps->n_routes]._content, _plint_html_result);
+    ps->route[ps->n_routes]._content_size = (off_t)strlen(_plint_html_result);
   }
   ps->n_routes++;
   return true;

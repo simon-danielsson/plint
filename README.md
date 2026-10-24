@@ -31,7 +31,6 @@ Plint is (at its core) a wrapper around the Unix networking API; it's adequate f
 ### Features
     
 - HTML template engine
-- Markdown-HTML converter
 - Serving of static files
 - Easy-to-understand error messages
 - Bulk asset routing

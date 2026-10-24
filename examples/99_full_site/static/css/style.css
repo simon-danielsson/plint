@@ -1,0 +1,92 @@
+@font-face {
+  font-family: maple; /* set name */
+  src: url(MapleMono-NF-Regular.ttf); /* url of the font */
+}
+
+:root {
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+  --fg-1: #8c8f92;
+  --fg-2: #5f5f63;
+  --mg-1: #37373a;
+  --bg-1: #242425;
+  --bg-2: #202021;
+  --acc: #C4746E;
+}
+
+html,
+body {
+  background-color: var(--bg-2);
+    margin: 0;
+    padding: 0;
+}
+
+hr {
+  margin: 1rem;
+  width: 240px;
+  border-color: var(--mg-1);
+  border-width: 1px;
+  border-style: solid;
+  color: var(--mg-1);
+}
+
+/* general text ------------------------------------------------------------ */
+
+ul,ol,li,a {
+    color: var(--fg-1);
+    text-decoration: none;
+}
+a:hover {
+    color: var(--acc);
+}
+
+.icon {
+    font-size: 1.2rem;
+    font-family: maple;
+}
+
+h1 {
+  margin: 0;
+  color: var(--fg-1);
+}
+
+p,
+small {
+  margin: 0;
+  color: var(--fg-2);
+}
+
+/* header ------------------------------------------------------------------ */
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--mg-1);
+    padding: 1rem;
+    padding-inline: 2rem;
+}
+
+.header-left, .header-right{
+    display: flex;
+    flex-direction:row;
+    gap: 1rem;
+}
+
+.header-center{
+    display: flex;
+    align-items: center;
+    padding-left: 1rem;
+    gap: 2rem;
+}
+
+.header-left h1:hover {
+    color: var(--acc);
+    cursor:pointer;
+}
+
+header img {
+  align-content: center;
+  height: 40px;
+}
+

@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     'bin/plint-debug-601706c-v0.5.0'
+relocations:     []
+...

@@ -227,21 +227,18 @@ intern_fn void _Plint_FILENAME_update(const char *new_filename) {
 }
 
 #define _Plint_VARS_MAX 200
-global_var PlintVariable *VARIABLES[_Plint_VARS_MAX] = {0};
+size_t variables_n = 0;
+global_var PlintVariable VARIABLES[_Plint_VARS_MAX] = {0};
 void Plint_append_variable(PlintVariable *pv) {
-  /* NOTE: allocated memory is never freed. This is fine in my opinion since
-    the memory is only allocated once at startup. */
-  PlintVariable *var = malloc(sizeof(PlintVariable));
-  var = pv;
   for (size_t i = 0; i < _Plint_VARS_MAX; i++) {
-    if (VARIABLES[i] == NULL) {
-      VARIABLES[i] = var;
+    if (VARIABLES[i].key == NULL) {
+      VARIABLES[i] = *pv; // struct copy: kind, key, sizes, the whole union
+      variables_n++;
       return;
     }
   }
-  _PlintErr(
-      "%s: Maximum variable count exceeded while trying to add variable '%s'",
-      _Plint_FILENAME, var->key);
+  _PlintErr("%s: Maximum variable count exceeded while adding '%s'",
+            _Plint_FILENAME, pv->key);
 }
 
 global_var char _plint_html_result[_PLINT_BUF_SZ] = {0};
@@ -253,31 +250,17 @@ void __plint_template_engine_process_html_RESET(void) {
 }
 
 intern_fn void VARIABLES_pop_last_added(void) {
-  for (size_t i = 0; i < _Plint_VARS_MAX; i++) {
-    if (VARIABLES[i] == NULL) {
-      if (i == 0) {
-        _PlintErr("%s:%d -- attempt to pop from empty variable stack",
-                  _Plint_FILENAME, _plint_html_line);
-      }
-      VARIABLES[i - 1] = NULL;
-      return;
-    }
-  }
-}
-
-char *_Plint_read_entire_file(const char *path) {
-  char tmp[_PLINT_BUF_SZ];
-  FILE *f = fopen(path, "rb");
-  assert(f);
-  int c, len = 0;
-  while ((c = fgetc(f)) != EOF) {
-    tmp[len++] = c;
-  }
-  tmp[len] = '\0';
-  char *content = malloc(sizeof(char) * ((size_t)len + 1));
-  strcpy(content, tmp);
-  fclose(f);
-  return content;
+  variables_n--;
+  //  for (size_t i = 0; i < _Plint_VARS_MAX; i++) {
+  //    if (VARIABLES[i] == NULL) {
+  //      if (i == 0) {
+  //        _PlintErr("%s:%d -- attempt to pop from empty variable stack",
+  //                  _Plint_FILENAME, _plint_html_line);
+  //      }
+  //      VARIABLES[i - 1] = NULL;
+  //      return;
+  //    }
+  //  }
 }
 
 bool _Plint_found(const char *cont, uint curr_idx, char *found) {
@@ -379,9 +362,9 @@ uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
         }
 
         bool var_was_Plint_found = false;
-        for (size_t i = 0; VARIABLES[i] != NULL; i++) {
-          if (strcmp(var, VARIABLES[i]->key) == 0) {
-            if (VARIABLES[i]->kind == ARRAY) {
+        for (size_t i = 0; i < variables_n; i++) {
+          if (strcmp(var, VARIABLES[i].key) == 0) {
+            if (VARIABLES[i].kind == ARRAY) {
 
               if (var_idx == -1) {
                 _PlintErr("%s:%d -- index for array variable '%s' is "
@@ -389,18 +372,18 @@ uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
                           _Plint_FILENAME, _plint_html_line, var);
               }
 
-              if ((size_t)var_idx >= VARIABLES[i]->arr_size) {
+              if ((size_t)var_idx >= VARIABLES[i].arr_size) {
                 _PlintErr("%s:%d -- specified index for array variable "
                           "'%s' is larger than array size",
                           _Plint_FILENAME, _plint_html_line, var);
               }
 
-              PlintVariableKind var_kind = VARIABLES[i]->val.arr[var_idx].kind;
+              PlintVariableKind var_kind = VARIABLES[i].val.arr[var_idx].kind;
 
               if (var_kind == VAR_INT) {
                 // printf("array var kind int\n");
                 char tmp[10];
-                snprintf(tmp, 10, "%d", VARIABLES[i]->val.arr[var_idx].val.i);
+                snprintf(tmp, 10, "%d", VARIABLES[i].val.arr[var_idx].val.i);
                 tmp[9] = '\0';
                 for (size_t j = 0; j < strlen(tmp); j++) {
                   _plint_html_result[_plint_html_result_idx++] = tmp[j];
@@ -409,45 +392,45 @@ uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
               } else if (var_kind == VAR_DBL) {
                 // printf("array var kind double\n");
                 char tmp[10 + 1];
-                snprintf(tmp, 10, "%.2f", VARIABLES[i]->val.arr[var_idx].val.d);
+                snprintf(tmp, 10, "%.2f", VARIABLES[i].val.arr[var_idx].val.d);
                 tmp[10] = '\0';
                 for (size_t j = 0; j < strlen(tmp); j++) {
                   _plint_html_result[_plint_html_result_idx++] = tmp[j];
                 }
               } else {
                 // printf("array var kind string\n");
-                if (VARIABLES[i]->val.arr[var_idx].val.s == NULL) {
+                if (VARIABLES[i].val.arr[var_idx].val.s == NULL) {
                   _PlintErr("%s:%d -- array variable "
                             "'%s' at index '%d' contains a null value",
                             _Plint_FILENAME, _plint_html_line, var, var_idx);
                 }
                 for (size_t j = 0;
-                     j < strlen(VARIABLES[i]->val.arr[var_idx].val.s); j++) {
+                     j < strlen(VARIABLES[i].val.arr[var_idx].val.s); j++) {
                   _plint_html_result[_plint_html_result_idx++] =
-                      VARIABLES[i]->val.arr[var_idx].val.s[j];
+                      VARIABLES[i].val.arr[var_idx].val.s[j];
                 }
               }
 
-            } else if (VARIABLES[i]->kind == VAR_INT) {
+            } else if (VARIABLES[i].kind == VAR_INT) {
               char tmp[10 + 1];
-              snprintf(tmp, 10, "%d", VARIABLES[i]->val.i);
+              snprintf(tmp, 10, "%d", VARIABLES[i].val.i);
               tmp[10] = '\0';
               for (size_t j = 0; j < strlen(tmp); j++) {
                 _plint_html_result[_plint_html_result_idx++] = tmp[j];
               }
 
-            } else if (VARIABLES[i]->kind == VAR_DBL) {
+            } else if (VARIABLES[i].kind == VAR_DBL) {
               char tmp[10 + 1];
-              snprintf(tmp, 10, "%.2f", VARIABLES[i]->val.d);
+              snprintf(tmp, 10, "%.2f", VARIABLES[i].val.d);
               tmp[10] = '\0';
               for (size_t j = 0; j < strlen(tmp); j++) {
                 _plint_html_result[_plint_html_result_idx++] = tmp[j];
               }
 
             } else {
-              for (size_t j = 0; j < strlen(VARIABLES[i]->val.s); j++) {
+              for (size_t j = 0; j < strlen(VARIABLES[i].val.s); j++) {
                 _plint_html_result[_plint_html_result_idx++] =
-                    VARIABLES[i]->val.s[j];
+                    VARIABLES[i].val.s[j];
               }
             }
             var_was_Plint_found = true;
@@ -507,9 +490,9 @@ uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
           trim_str(var);
           int var_is_true = -1;
 
-          for (size_t i = 0; VARIABLES[i] != NULL; i++) {
-            if (strcmp(var, VARIABLES[i]->key) == 0) {
-              var_is_true = VARIABLES[i]->val.i;
+          for (size_t i = 0; i < variables_n; i++) {
+            if (strcmp(var, VARIABLES[i].key) == 0) {
+              var_is_true = VARIABLES[i].val.i;
               break;
             }
           }
@@ -620,8 +603,8 @@ uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
           // printf("iterable: '%s' - array: '%s'\n", iter_var, array_var);
 
           bool array_undefined = true;
-          for (size_t i = 0; VARIABLES[i] != NULL; i++) {
-            if (strcmp(array_var, VARIABLES[i]->key) == 0) {
+          for (size_t i = 0; i < variables_n; i++) {
+            if (strcmp(array_var, VARIABLES[i].key) == 0) {
               array_undefined = false;
 
               size_t depth_counter = 1;
@@ -648,12 +631,12 @@ uint _plint_html_process_depth(char *cont, size_t cont_len, uint pos,
 
               size_t body_len = endfor_start - pos;
 
-              for (size_t j = 0; j < VARIABLES[i]->arr_size; j++) {
+              for (size_t j = 0; j < VARIABLES[i].arr_size; j++) {
                 Plint_append_variable(&(PlintVariable){
-                    .arr_size = VARIABLES[i]->val.arr[j].arr_size,
+                    .arr_size = VARIABLES[i].val.arr[j].arr_size,
                     .key = iter_var,
-                    .kind = VARIABLES[i]->val.arr[j].kind,
-                    .val = VARIABLES[i]->val.arr[j].val});
+                    .kind = VARIABLES[i].val.arr[j].kind,
+                    .val = VARIABLES[i].val.arr[j].val});
                 _plint_html_process_depth(&cont[pos], body_len, 0, depth + 1);
                 VARIABLES_pop_last_added();
               }

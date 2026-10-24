@@ -4,10 +4,9 @@
 int main(void) {
     PlintServer ps = {0};
 
-    static PlintVariable n_example = {
-        .kind = VAR_INT, .key = "n_example", .val.i = 2};
+    PlintVariable n_example = {.kind = VAR_INT, .key = "n_example", .val.i = 2};
 
-    static PlintVariable description = {
+    PlintVariable description = {
         .kind = VAR_STR,
         .key = "description",
         .val.s =

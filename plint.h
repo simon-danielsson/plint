@@ -228,16 +228,20 @@ intern_fn void _Plint_FILENAME_update(const char *new_filename) {
 
 #define _Plint_VARS_MAX 200
 global_var PlintVariable *VARIABLES[_Plint_VARS_MAX] = {0};
-void Plint_append_variable(PlintVariable *var_to_append) {
+void Plint_append_variable(PlintVariable *pv) {
+  /* NOTE: allocated memory is never freed. This is fine in my opinion since
+    the memory is only allocated once at startup. */
+  PlintVariable *var = malloc(sizeof(PlintVariable));
+  var = pv;
   for (size_t i = 0; i < _Plint_VARS_MAX; i++) {
     if (VARIABLES[i] == NULL) {
-      VARIABLES[i] = var_to_append;
+      VARIABLES[i] = var;
       return;
     }
   }
   _PlintErr(
       "%s: Maximum variable count exceeded while trying to add variable '%s'",
-      _Plint_FILENAME, var_to_append->key);
+      _Plint_FILENAME, var->key);
 }
 
 global_var char _plint_html_result[_PLINT_BUF_SZ] = {0};

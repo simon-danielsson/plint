@@ -4,7 +4,7 @@
 int main(void) {
     PlintServer ps = {0};
 
-    static PlintVariable show_description = {
+    PlintVariable show_description = {
         .kind = VAR_INT, .key = "show_description", .val.i = false};
     Plint_append_variable(&show_description);
 

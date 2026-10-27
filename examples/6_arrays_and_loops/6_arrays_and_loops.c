@@ -4,20 +4,14 @@
 int main(void) {
     PlintServer ps = {0};
 
-    PlintVariable favorite_foods = {
-        .key = "favorite_foods",
-        .kind = ARRAY,
-        .arr_size = 4,
-        .val.arr =
-            (const PlintVariable[]){
-                {.kind = VAR_STR, .val.s = "Tuna pizza"},
-                {.kind = VAR_STR, .val.s = "Lasagna"},
-                {.kind = VAR_STR, .val.s = "Burek"},
-                {.kind = VAR_STR, .val.s = "Sushi"},
-            },
-    };
-
-    Plint_append_variable(&favorite_foods);
+    Plint_append_variable(&(PlintVariable){
+            .key = "favorite_foods",
+            .kind = ARRAY,
+            .arr_size = 4,
+            .val.arr = (PlintVariable[]){{.kind = VAR_STR, .val.s = "Lasagna"},
+            {.kind = VAR_STR, .val.s = "Tuna pizza"},
+            {.kind = VAR_STR, .val.s = "Burek"},
+            {.kind = VAR_STR, .val.s = "Sushi"}}});
 
     Plint_append_route(&ps,
             &(PlintRoute){.route = "/", .file_path = "index.html"});

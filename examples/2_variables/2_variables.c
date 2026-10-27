@@ -4,16 +4,14 @@
 int main(void) {
     PlintServer ps = {0};
 
-    PlintVariable n_example = {.kind = VAR_INT, .key = "n_example", .val.i = 2};
+    Plint_append_variable(
+            &(PlintVariable){.kind = VAR_INT, .key = "n_example", .val.i = 2});
 
-    PlintVariable description = {
-        .kind = VAR_STR,
-        .key = "description",
-        .val.s =
-            "This is the second example that showcases the use of variables."};
-
-    Plint_append_variable(&n_example);
-    Plint_append_variable(&description);
+    Plint_append_variable(&(PlintVariable){
+            .kind = VAR_STR,
+            .key = "description",
+            .val.s =
+            "This is the second example that showcases the use of variables."});
 
     Plint_append_route(&ps,
             &(PlintRoute){.route = "/", .file_path = "index.html"});

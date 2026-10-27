@@ -63,6 +63,9 @@ Simply clone or copy-paste [plint.h](./plint.h) into your codebase and include i
    
 See [USAGE.md](./USAGE.md) for an in-depth walkthrough of Plint.   
 See [/examples](./examples) to view practical examples of typical usage.
+  
+My own [website](https://www.simondanielsson.se/) is an example of Plint being
+used in the real world.
     
 ---
 <div id="references"></div>

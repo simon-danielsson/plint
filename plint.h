@@ -47,6 +47,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <dirent.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -693,7 +694,7 @@ intern_fn char *_Plint_mime_type_get(char *file_path) {
   if (strcmp(ext, ".html") == 0)
     return "text/html";
   if (strcmp(ext, ".ico") == 0)
-    return "image/x-icon";
+    return "image/ttf";
   if (strcmp(ext, ".css") == 0)
     return "text/css";
   if (strcmp(ext, ".js") == 0)
@@ -703,7 +704,11 @@ intern_fn char *_Plint_mime_type_get(char *file_path) {
   if (strcmp(ext, ".png") == 0)
     return "image/png";
   if (strcmp(ext, ".jpg") == 0)
-    return "image/jpeg";
+    return "image/jpg";
+  if (strcmp(ext, ".ttf") == 0)
+    return "font/ttf";
+  if (strcmp(ext, ".webp") == 0)
+    return "image/webp";
   if (strcmp(ext, ".gif") == 0)
     return "image/gif";
   return "text/plain";
@@ -814,8 +819,11 @@ intern_fn void _Plint_file_serve(PlintServer *ps, int client_socket,
 
       char response_header[_PLINT_BUF_SZ];
       snprintf(response_header, _PLINT_BUF_SZ,
-               "HTTP/1.1 200 OK\r\nContent-Length: %lld\r\nContent-Type: "
-               "%s\r\n\r\n",
+               "HTTP/1.1 200 OK\r\n"
+               "Content-Length: %lld\r\n"
+               "Content-Type: %s\r\n"
+               "Connection: close\r\n"
+               "\r\n",
                ps->route[i]._content_size, ps->route[i]._mime);
       send(client_socket, response_header, strlen(response_header), 0);
 
@@ -904,53 +912,109 @@ intern_fn void _Plint_route_handle(PlintServer *ps, int socket, char *path) {
     }
   }
   _PlintLog("route not found: %s", path);
-  // TODO: handle_route_not_Plint_found(client_socket);
+
+  // TODO: add custom 404 route
+  static const char not_found[] = "HTTP/1.1 404 Not Found\r\n"
+                                  "Content-Length: 0\r\n"
+                                  "Connection: close\r\n"
+                                  "\r\n";
+  send(socket, not_found, sizeof(not_found) - 1, 0);
 }
 
-#define _PLINT_HDR_FIELD_SZ 96
+#define _PLINT_HDR_FIELD_SZ 512 /* bumped from 96 */
 intern_fn void _Plint_client_handle(PlintServer *ps, int socket) {
 
   char method[_PLINT_HDR_FIELD_SZ] = {0}, path[_PLINT_HDR_FIELD_SZ] = {0},
        http_v[_PLINT_HDR_FIELD_SZ] = {0};
   {
     char buf[_PLINT_BUF_SZ] = {0};
-    ssize_t len = recv(socket, buf, _PLINT_BUF_SZ, MSG_PEEK);
-    if (len < 0) {
-      perror("recv");
-      exit(EXIT_FAILURE);
+    size_t have = 0;
+    bool headers_done = false;
+
+    while (!headers_done && have < _PLINT_BUF_SZ - 1) {
+      ssize_t len = recv(socket, buf + have, _PLINT_BUF_SZ - 1 - have, 0);
+      if (len < 0) {
+        if (errno == EINTR)
+          continue;
+        perror("recv");
+        goto cleanup_and_close;
+      }
+      if (len == 0) /* client hung up mid-request */
+        goto cleanup_and_close;
+
+      have += (size_t)len;
+      buf[have] = '\0';
+
+      for (size_t i = 0; i + 4 <= have; i++) {
+        if (memcmp(&buf[i], "\r\n\r\n", 4) == 0) {
+          headers_done = true;
+          break;
+        }
+      }
+
+      if (have >= _PLINT_BUF_SZ - 1) {
+        static const char bad_request[] = "HTTP/1.1 414 URI Too Long\r\n"
+                                          "Content-Length: 0\r\n"
+                                          "Connection: close\r\n"
+                                          "\r\n";
+        send(socket, bad_request, sizeof(bad_request) - 1, 0);
+        close(socket);
+        return;
+      }
     }
-    char *ptr = &*buf;
-    uint n_len = 0;
-    while (*ptr++ != '\r') {
-      n_len++;
+
+    buf[strcspn(buf, "\r\n")] = '\0';
+
+    // validate sscanf success
+    int n_parsed = sscanf(buf, "%511s %511s %511s", method, path, http_v);
+    if (n_parsed != 3) {
+      static const char bad_req[] = "HTTP/1.1 400 Bad Request\r\n"
+                                    "Content-Length: 0\r\n"
+                                    "Connection: close\r\n"
+                                    "\r\n";
+      send(socket, bad_req, sizeof(bad_req) - 1, 0);
+      close(socket);
+      return;
     }
-    buf[n_len] = '\0';
-    sscanf(buf, "%s %s %s", method, path, http_v);
+
+    // strip query string
+    path[strcspn(path, "?")] = '\0';
   }
 
   _PlintLog("%s %s", method, path);
 
-  if (strcmp(http_v, "1.1")) {
+  if (strcmp(http_v, "HTTP/1.1") == 0) {
     if (strcmp(method, "GET") == 0) {
       _Plint_route_handle(ps, socket, path);
-      // char *msg = "200";
-      // send(socket, msg, strlen(msg), 0);
     } else if (strcmp(method, "POST") == 0) {
-      char *msg = "nice try hacker!";
-      send(socket, msg, strlen(msg), 0);
+      static const char deny[] = "HTTP/1.1 405 Method Not Allowed\r\n"
+                                 "Content-Length: 0\r\n"
+                                 "Connection: close\r\n"
+                                 "\r\n";
+      send(socket, deny, sizeof(deny) - 1, 0);
     } else {
-      char *msg = "404";
-      send(socket, msg, strlen(msg), 0);
-      // handle_route_not_Plint_found(client_socket);
+      static const char nok[] = "HTTP/1.1 405 Method Not Allowed\r\n"
+                                "Content-Length: 0\r\n"
+                                "Connection: close\r\n"
+                                "\r\n";
+      send(socket, nok, sizeof(nok) - 1, 0);
     }
+  } else {
+    static const char old_http[] = "HTTP/1.1 505 HTTP Version Not Supported\r\n"
+                                   "Content-Length: 0\r\n"
+                                   "Connection: close\r\n"
+                                   "\r\n";
+    send(socket, old_http, sizeof(old_http) - 1, 0);
   }
 
-  shutdown(socket, SHUT_RD);
+cleanup_and_close:
   close(socket);
 }
 
 void PlintServer_start(PlintServer *ps, const ServerAddressIPv4 saddr) {
   struct sockaddr_in addr = _PlintServer_init_socket_address(saddr);
+
+  signal(SIGPIPE, SIG_IGN);
 
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd == -1)
